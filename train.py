@@ -65,6 +65,9 @@ def train(epochs=100000, batch_size=100, lr=5e-04, step_size=10, start_frame=100
             if cnt > 300:
                 env.reset()
                 step(env, start_frame)
+                # close hand
+                for i in range(len(env.data.ctrl[:])):
+                    env.data.ctrl[i] = 0.9
                 break
                 # cnt = 0
 

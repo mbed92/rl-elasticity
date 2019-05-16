@@ -49,16 +49,16 @@ def get_reward(sim):
     body = get_target_pose(sim, 'base_link', 'fix')
 
     # reward from decreasing the distance between a gripper and a grip point
-    pos_dist = np.sum(np.abs(grip[0] - tool[0]))
-    position_rew = 1 / pos_dist if pos_dist > 0.05 else 100
+    grip_tool_dist = np.sum(np.abs(grip[0] - tool[0]))
+    position_rew = 1 / grip_tool_dist if grip_tool_dist > 0.05 else 100
 
     # reward from stretching the object to the specified point
-    obj_dist = np.sum(np.abs(body[0] - [0.25, 0, 0.875]))
-    obj_reward = 1 / obj_dist if obj_dist > 0.05 else 100
+    grip_body_dist = np.sum(np.abs(grip[0] - body[0]))
+    obj_reward = 1 / grip_body_dist if grip_body_dist > 0.05 else 100
 
-    # reward from grasping the object
+    # reward from grasping the object (if it's close enough)
     grip_reward = 0
-    if is_closed(sim) and pos_dist < 0.1:
+    if is_closed(sim) and grip_tool_dist < 0.05:
         grip_reward = 100
 
     return position_rew, obj_reward, grip_reward
