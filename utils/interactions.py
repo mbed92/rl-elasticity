@@ -45,7 +45,8 @@ def get_observations(sim):
     return np.float32(obs[np.newaxis, :])
 
 
-def is_ep_done(sim, reward):
-    if reward < 3.0 or reward > 299:
+def is_ep_done(reward):
+    # check last reward if in proper range
+    if reward < 2.7 or reward > 299:
         return True
     return False

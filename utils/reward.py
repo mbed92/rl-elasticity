@@ -62,3 +62,15 @@ def get_reward(sim):
         grip_reward = 100
 
     return position_rew, obj_reward, grip_reward
+
+
+def standarize_rewards(rewards: list):
+    rewards = np.asarray(rewards)
+
+    # standarize
+    m, s = np.mean(rewards), np.sqrt(np.var(rewards))
+    ret = (rewards - m) / (s + 1e-06)
+
+    # set to range from 0
+    ret -= np.min(ret)
+    return ret.tolist()
