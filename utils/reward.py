@@ -25,24 +25,6 @@ def get_target_pose(sim):
     return translation, rotation_quat
 
 
-def get_reward(sim, tool, target):
-
-    # reward from position of tool
-    pos_dist = np.sum(np.abs(target[0] - tool[0]))
-
-    # reward from position of object
-    obj_dist = np.sum(np.abs(target[0] - [0.25, 0, 0.875]))
-    obj_reward = 1 / obj_dist if obj_dist > 0.05 else 100
-    position_rew = 1 / pos_dist if pos_dist > 0.05 else 100
-
-    # reward from grasping the object
-    grip_reward = 0
-    if is_closed(sim) and pos_dist < 0.1:
-        grip_reward = 100
-
-    return position_rew, grip_reward, obj_reward
-
-
 def discount_rewards(r, gamma=0.8):
     discounted_r = np.zeros_like(r)
     running_add = 0
@@ -71,4 +53,19 @@ def is_closed(sim):
     return False
 
 
+def get_reward(sim, tool, target):
 
+    # reward from position of tool
+    pos_dist = np.sum(np.abs(target[0] - tool[0]))
+
+    # reward from position of object
+    obj_dist = np.sum(np.abs(target[0] - [0.25, 0, 0.875]))
+    obj_reward = 1 / obj_dist if obj_dist > 0.05 else 100
+    position_rew = 1 / pos_dist if pos_dist > 0.05 else 100
+
+    # reward from grasping the object
+    grip_reward = 0
+    if is_closed(sim) and pos_dist < 0.1:
+        grip_reward = 100
+
+    return position_rew, grip_reward, obj_reward

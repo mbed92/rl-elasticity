@@ -14,7 +14,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=100000000, batch_size=100, lr=5e-04, step_size=10, start_frame=1000):
+def train(epochs=100000, batch_size=100, lr=5e-04, step_size=10, start_frame=1000):
     # make environment, check spaces, get obs / act dims
     path = os.path.join('.', 'models', 'ur5', 'UR5gripper.xml')
     scene = mujoco_py.load_model_from_path(path)
@@ -38,7 +38,7 @@ def train(epochs=100000000, batch_size=100, lr=5e-04, step_size=10, start_frame=
     os.makedirs(checkpoint_prefix, exist_ok=True)
 
     # run training
-    step(env, start_frame)
+    # step(env, start_frame)
     for epoch in range(epochs):
         train_writer.set_as_default()
         train_reward = tfc.eager.metrics.Mean('reward')
@@ -52,6 +52,21 @@ def train(epochs=100000000, batch_size=100, lr=5e-04, step_size=10, start_frame=
         # start learning from the start_frame
         step(env, start_frame)
         cnt, break_cnt = 0, 0
+
+        # while True:
+        #     rgb = get_camera_image(viewer, cam_id=0)
+        #     cv2.imshow("aaa", rgb[0])
+        #     cv2.waitKey(1)
+        #
+        #     step(env, step_size)
+        #     # print(start_frame + cnt * step_size)
+        #     if cnt > 1000:
+        #         env.reset()
+        #         step(env, start_frame)
+        #         break
+        #         # cnt = 0
+        #
+        #     cnt += 1
 
         while True:
             # get the data to feed the model
@@ -120,7 +135,7 @@ def train(epochs=100000000, batch_size=100, lr=5e-04, step_size=10, start_frame=
             train_writer.flush()
 
         # save model
-        if epoch % 10000 == 0:
+        if epoch % 500 == 0:
             ckpt.save(checkpoint_prefix)
 
 
