@@ -1,23 +1,11 @@
 from .kinematics import *
 
 
-def get_tool_pose(sim):
-    base_xyz = sim.data.get_body_xpos('base_link')
-    base_quat = sim.data.get_body_xquat('base_link')
-    tool_xyz = sim.data.get_body_xpos('gripperpalm')
-    tool_quat = sim.data.get_body_xquat('gripperpalm')
-
-    translation = tool_xyz - base_xyz
-    rotation_quat = quaternion_multiply(tool_quat, quaternion_inverse(base_quat))
-
-    return translation, rotation_quat
-
-
-def get_target_pose(sim):
-    base_xyz = sim.data.get_body_xpos('base_link')
-    base_quat = sim.data.get_body_xquat('base_link')
-    target_xyz = sim.data.get_body_xpos('CB19')
-    target_quat = sim.data.get_body_xquat('CB19')
+def get_target_pose(sim, base_name, target_name):
+    base_xyz = sim.data.get_body_xpos(base_name)
+    base_quat = sim.data.get_body_xquat(base_name)
+    target_xyz = sim.data.get_body_xpos(target_name)
+    target_quat = sim.data.get_body_xquat(target_name)
 
     translation = target_xyz - base_xyz
     rotation_quat = quaternion_multiply(target_quat, quaternion_inverse(base_quat))
@@ -53,19 +41,24 @@ def is_closed(sim):
     return False
 
 
-def get_reward(sim, tool, target):
+def get_reward(sim):
 
-    # reward from position of tool
-    pos_dist = np.sum(np.abs(target[0] - tool[0]))
+    # get the poses of targets in the robot's base coordinate system
+    tool = get_target_pose(sim, 'base_link', 'gripperpalm')
+    grip = get_target_pose(sim, 'base_link', 'CB17')
+    body = get_target_pose(sim, 'base_link', 'fix')
 
-    # reward from position of object
-    obj_dist = np.sum(np.abs(target[0] - [0.25, 0, 0.875]))
-    obj_reward = 1 / obj_dist if obj_dist > 0.05 else 100
+    # reward from decreasing the distance between a gripper and a grip point
+    pos_dist = np.sum(np.abs(grip[0] - tool[0]))
     position_rew = 1 / pos_dist if pos_dist > 0.05 else 100
+
+    # reward from stretching the object to the specified point
+    obj_dist = np.sum(np.abs(body[0] - [0.25, 0, 0.875]))
+    obj_reward = 1 / obj_dist if obj_dist > 0.05 else 100
 
     # reward from grasping the object
     grip_reward = 0
     if is_closed(sim) and pos_dist < 0.1:
         grip_reward = 100
 
-    return position_rew, grip_reward, obj_reward
+    return position_rew, obj_reward, grip_reward
