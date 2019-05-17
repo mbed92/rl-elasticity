@@ -50,15 +50,20 @@ def get_reward(sim):
 
     # reward from decreasing the distance between a gripper and a grip point
     grip_tool_dist = np.sum(np.abs(grip[0] - tool[0]))
-    position_rew = 1 / grip_tool_dist if grip_tool_dist > 0.05 else 100
+    position_rew = 1 / grip_tool_dist if grip_tool_dist > 0.1 else 100
 
     # reward from stretching the object to the specified point
     grip_body_dist = np.sum(np.abs(grip[0] - body[0]))
-    obj_reward = 1 / grip_body_dist if grip_body_dist > 0.05 else 100
+    obj_reward = 1 / grip_body_dist if grip_body_dist > 0.1 else 100
+
+    position_rew *= 0.6
+    if grip_tool_dist < 0.2 and grip_body_dist < 0.2:
+        position_rew *= 1.3
+        obj_reward *= 1.3
 
     # reward from grasping the object (if it's close enough)
     grip_reward = 0
-    if is_closed(sim) and grip_tool_dist < 0.05:
+    if is_closed(sim) and grip_tool_dist < 0.1:
         grip_reward = 100
 
     return position_rew, obj_reward, grip_reward
@@ -71,6 +76,7 @@ def standarize_rewards(rewards: list):
     m, s = np.mean(rewards), np.sqrt(np.var(rewards))
     ret = (rewards - m) / (s + 1e-06)
 
-    # set to range from 0
-    ret -= np.min(ret)
+    # set to range from abs(minimal value) - 2* because first action has almost always the lowest reward and
+    # would be set to 0 (environment specific)
+    ret -= 2*np.min(ret)
     return ret.tolist()

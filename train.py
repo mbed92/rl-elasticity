@@ -14,7 +14,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=1000, num_trajectories_per_batch=50, lr=5e-04, step_size=10, start_frame=1000):
+def train(epochs=2000, num_ep_per_batch=1, lr=5e-04, step_size=10, start_frame=1000):
     # make environment, check spaces, get obs / act dims
     path = os.path.join('.', 'models', 'ur5', 'UR5gripper.xml')
     scene = mujoco_py.load_model_from_path(path)
@@ -49,11 +49,14 @@ def train(epochs=1000, num_trajectories_per_batch=50, lr=5e-04, step_size=10, st
         total_gradient = []
 
         # start learning from the start_frame
-        step(env, start_frame)
-        cnt, break_cnt = 0, 0
+        cnt = 0
+        reset(env, start_frame)
         while True:
             obs = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
+
+            cv2.imshow("aaa", rgb[0])
+            cv2.waitKey(1)
 
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as tape:
@@ -78,28 +81,33 @@ def train(epochs=1000, num_trajectories_per_batch=50, lr=5e-04, step_size=10, st
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if is_ep_done(ep_rew):
+            overtime = True if cnt > 600 else False
+            if is_ep_done(ep_rew) or overtime:
                 if len(ep_rewards) > 2:     # do not accept one-element lists of rewards
                     ep_rewards = standarize_rewards(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
+
+                    # add penalty for overtime
+                    ep_rewards = [x * 0.6 for x in ep_rewards]
                     ep_reward_sum, ep_reward_mean = sum(ep_rewards), np.mean(np.asarray(ep_rewards))
+                    print("Episode is done! Sum reward: {0}, mean reward: {1}".format(ep_reward_sum, ep_reward_mean))
 
                     # normalize rewards and apply them to gradients
                     normalized_reward = ep_reward_sum - ep_reward_mean
                     batch_reward.append(normalized_reward)
                     weighted_grads = [normalized_reward * element for element in ep_log_grad]
                     total_gradient = [tf.add(x, y) for x, y in zip(total_gradient, weighted_grads)] if len(total_gradient) != 0 else weighted_grads
-                    cnt += 1
 
                 # reset episode-specific variables
-                env.reset()
                 ep_rewards, ep_log_grad, weighted_grads = [], [], []
 
                 # end experience loop if we have enough of it
-                print("Episode is done!")
-                if cnt >= num_trajectories_per_batch:
+                if len(batch_reward) >= num_ep_per_batch:
                     break
+                else:
+                    reset(env, start_frame)
 
+            cnt += 1
         # take a single policy gradient update step
         num_episodes = len(batch_reward)
         rew = sum(batch_reward) / num_episodes
@@ -118,7 +126,7 @@ def train(epochs=1000, num_trajectories_per_batch=50, lr=5e-04, step_size=10, st
             train_writer.flush()
 
         # save model
-        if epoch % 500 == 0:
+        if epoch % 60 == 0:
             ckpt.save(checkpoint_prefix)
 
 

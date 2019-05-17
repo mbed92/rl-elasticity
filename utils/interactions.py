@@ -1,16 +1,30 @@
 import numpy as np
 import mujoco_py
+from .constants import start_qpos
 
 
 EPS = 1e-8
 
 
-def step(env, num):
+def step(env, start_frame):
     try:
-        for _ in range(num):
+        for _ in range(start_frame):
             env.step()
     except mujoco_py.builder.MujocoException:
         pass
+
+
+def reset(env, start_frame):
+    env.reset()
+    env.data.set_joint_qpos("shoulder_pan_joint", start_qpos["shoulder_pan_joint"])
+    env.data.set_joint_qpos("shoulder_lift_joint", start_qpos["shoulder_lift_joint"])
+    env.data.set_joint_qpos("elbow_joint", start_qpos["elbow_joint"])
+    env.data.set_joint_qpos("wrist_1_joint", start_qpos["wrist_1_joint"])
+    env.data.set_joint_qpos("wrist_2_joint", start_qpos["wrist_2_joint"])
+    env.data.set_joint_qpos("wrist_3_joint", start_qpos["wrist_3_joint"])
+
+    if start_frame > 0:
+        step(env, start_frame)
 
 
 def get_camera_image(viewer, cam_id, width=320, height=240, normalize=True):
@@ -47,6 +61,6 @@ def get_observations(sim):
 
 def is_ep_done(reward):
     # check last reward if in proper range
-    if reward < 2.7 or reward > 299:
+    if reward < 2.6 or reward > 299:
         return True
     return False
