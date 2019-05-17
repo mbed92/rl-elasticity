@@ -1,4 +1,7 @@
+from scipy.special import huber
+
 from .kinematics import *
+from .constants import gripper_close
 
 
 def get_target_pose(sim, base_name, target_name):
@@ -13,7 +16,7 @@ def get_target_pose(sim, base_name, target_name):
     return translation, rotation_quat
 
 
-def discount_rewards(r, gamma=0.8):
+def discount_rewards(r, gamma=0.98):
     discounted_r = np.zeros_like(r)
     running_add = 0
     r = np.asarray(r)
@@ -34,39 +37,44 @@ def is_closed(sim):
     g11 = sim.data.get_joint_qpos("gripperfinger_middle_joint_2")
     g12 = sim.data.get_joint_qpos("gripperfinger_middle_joint_3")
 
-    if g02 > 0.7 and g06 > 0.9 and g10 > 0.4 and \
-       g03 > 0.7 and g07 > 0.9 and g11 > 0.4 and \
-       g04 > 0.7 and g08 > 0.9 and g12 > 0.4:
+    if g02 > gripper_close["gripperfinger_1_joint_1"] and g06 > gripper_close["gripperfinger_2_joint_1"] and g10 > gripper_close["gripperfinger_middle_joint_1"] and \
+       g03 > gripper_close["gripperfinger_1_joint_2"] and g07 > gripper_close["gripperfinger_2_joint_2"] and g11 > gripper_close["gripperfinger_middle_joint_2"] and \
+       g04 > gripper_close["gripperfinger_1_joint_3"] and g08 > gripper_close["gripperfinger_2_joint_3"] and g12 > gripper_close["gripperfinger_middle_joint_3"]:
         return True
     return False
 
 
-def get_reward(sim):
+def get_reward(sim, u):
 
     # get the poses of targets in the robot's base coordinate system
     tool = get_target_pose(sim, 'base_link', 'gripperpalm')
     grip = get_target_pose(sim, 'base_link', 'CB17')
     body = get_target_pose(sim, 'base_link', 'fix')
 
-    # reward from decreasing the distance between a gripper and a grip point
-    grip_tool_dist = np.sum(np.abs(grip[0] - tool[0]))
-    position_rew = 1 / grip_tool_dist if grip_tool_dist > 0.1 else 100
+    # reward from decreasing the distance between a gripper and a grip point - reach reward
+    d = np.linalg.norm(grip[0] - tool[0])
+    grip_tool_dist = d if d < 0.5 else np.square(d)
+    gamma_1, gamma_2 = 0.9, 0.05
+    position_rew = -gamma_1 * grip_tool_dist - gamma_2 * np.matmul(u, np.transpose(u))
+    position_rew = (position_rew + 10) if d < 0.5 else position_rew
+    position_rew = (position_rew + 10) if d < 0.2 else position_rew
 
     # reward from stretching the object to the specified point
     grip_body_dist = np.sum(np.abs(grip[0] - body[0]))
     obj_reward = 1 / grip_body_dist if grip_body_dist > 0.1 else 100
 
-    position_rew *= 0.6
-    if grip_tool_dist < 0.2 and grip_body_dist < 0.2:
-        position_rew *= 1.3
-        obj_reward *= 1.3
+    # position_rew *= 0.6
+    # if grip_tool_dist < 0.2 and grip_body_dist < 0.2:
+    #     position_rew *= 1.3
+    #     obj_reward *= 1.3
 
     # reward from grasping the object (if it's close enough)
     grip_reward = 0
-    if is_closed(sim) and grip_tool_dist < 0.1:
+    if is_closed(sim) and grip_tool_dist < 0.2:
         grip_reward = 100
 
-    return position_rew, obj_reward, grip_reward
+    print(d, position_rew)
+    return position_rew#, obj_reward, grip_reward
 
 
 def standarize_rewards(rewards: list):

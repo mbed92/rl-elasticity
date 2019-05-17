@@ -1,5 +1,4 @@
 import os
-
 import mujoco_py
 import numpy as np
 import tensorflow as tf
@@ -14,7 +13,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=2000, num_ep_per_batch=1, lr=5e-04, step_size=10, start_frame=1000):
+def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1000):
     # make environment, check spaces, get obs / act dims
     path = os.path.join('.', 'models', 'ur5', 'UR5gripper.xml')
     scene = mujoco_py.load_model_from_path(path)
@@ -66,13 +65,13 @@ def train(epochs=2000, num_ep_per_batch=1, lr=5e-04, step_size=10, start_frame=1
                 # apply actions
                 actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
                 for i in range(len(env.data.ctrl)):
-                    env.data.ctrl[i] = actions.numpy()[0, i]
+                    env.data.ctrl[i] += actions.numpy()[0, i]
 
                 # speed up simulation
                 step(env, step_size)
 
                 # compute reward and loss
-                ep_rew = sum(get_reward(env))
+                ep_rew = sum(get_reward(env, actions.numpy()))
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -81,7 +80,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=5e-04, step_size=10, start_frame=1
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            overtime = True if cnt > 600 else False
+            overtime = True if cnt > 200 else False
             if is_ep_done(ep_rew) or overtime:
                 if len(ep_rewards) > 2:     # do not accept one-element lists of rewards
                     ep_rewards = standarize_rewards(ep_rewards)

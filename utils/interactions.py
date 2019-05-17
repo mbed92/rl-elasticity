@@ -61,6 +61,6 @@ def get_observations(sim):
 
 def is_ep_done(reward):
     # check last reward if in proper range
-    if reward < 2.6 or reward > 299:
+    if reward < -1.3 or reward > 0.5:
         return True
     return False
