@@ -1,6 +1,7 @@
 import numpy as np
 import mujoco_py
 from .constants import start_qpos
+from .reward import get_target_pose
 
 
 EPS = 1e-8
@@ -11,7 +12,7 @@ def step(env, start_frame):
         for _ in range(start_frame):
             env.step()
     except mujoco_py.builder.MujocoException:
-        pass
+        step(env, start_frame)
 
 
 def reset(env, start_frame):
@@ -37,6 +38,7 @@ def get_camera_image(viewer, cam_id, width=320, height=240, normalize=True):
 
 def get_observations(sim):
     obs = list()
+    poses = list()
     obs.append(sim.data.get_joint_qpos("shoulder_pan_joint"))
     obs.append(sim.data.get_joint_qpos("shoulder_lift_joint"))
     obs.append(sim.data.get_joint_qpos("elbow_joint"))
@@ -55,12 +57,14 @@ def get_observations(sim):
     obs.append(sim.data.get_joint_qpos("gripperfinger_middle_joint_1"))
     obs.append(sim.data.get_joint_qpos("gripperfinger_middle_joint_2"))
     obs.append(sim.data.get_joint_qpos("gripperfinger_middle_joint_3"))
+    poses.append(get_target_pose(sim, 'base_link', 'gripperpalm')[0])
+    poses.append(get_target_pose(sim, 'base_link', 'CB17')[0])
     obs = np.asarray(obs)
-    return np.float32(obs[np.newaxis, :])
+    poses = np.asarray(poses)
+    return np.float32(obs[np.newaxis, :]), np.float32(poses[np.newaxis, :])
 
 
 def is_ep_done(reward):
-    # check last reward if in proper range
-    if reward < -1.3 or reward > 0.5:
+    if reward < -1.0 or reward > 18:
         return True
     return False

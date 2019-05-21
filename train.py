@@ -37,6 +37,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
     os.makedirs(checkpoint_prefix, exist_ok=True)
 
     # run training
+    keep_random = 0.8
     for epoch in range(epochs):
         train_writer.set_as_default()
         train_reward = tfc.eager.metrics.Mean('reward')
@@ -45,13 +46,14 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
         ep_rewards = []          # list for rewards accrued throughout ep
         ep_log_grad = []         # list of log-likelihood gradients
         batch_reward = []
+        batch_means = []
         total_gradient = []
 
         # start learning from the start_frame
         cnt = 0
         reset(env, start_frame)
         while True:
-            obs = get_observations(env)
+            obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
 
             cv2.imshow("aaa", rgb[0])
@@ -59,11 +61,16 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
 
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as tape:
-                ep_mean_act, ep_log_dev = model([obs, rgb], True)
+                ep_mean_act, ep_log_dev = model([obs, rgb, pos], True)
                 ep_stddev = tf.exp(ep_log_dev)
 
                 # apply actions
-                actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
+                if np.random.rand() > keep_random:
+                    actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
+                else:
+                    actions = tf.random_uniform(tf.shape(ep_mean_act), ep_mean_act - 3 * ep_stddev, ep_mean_act + 3 * ep_stddev)
+                keep_random += (epoch/epochs)
+
                 for i in range(len(env.data.ctrl)):
                     env.data.ctrl[i] += actions.numpy()[0, i]
 
@@ -72,6 +79,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
 
                 # compute reward and loss
                 ep_rew = sum(get_reward(env, actions.numpy()))
+                # print(ep_rew)
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -80,48 +88,46 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            overtime = True if cnt > 200 else False
-            if is_ep_done(ep_rew) or overtime:
-                if len(ep_rewards) > 2:     # do not accept one-element lists of rewards
+            if is_ep_done(ep_rew):
+                if len(ep_rewards) > 10:  # do not accept one-element lists of rewards or trash moves
                     ep_rewards = standarize_rewards(ep_rewards)
+                    ep_rewards -= np.min(ep_rewards)    # make rewards always > 0
                     ep_rewards = discount_rewards(ep_rewards)
-
-                    # add penalty for overtime
-                    ep_rewards = [x * 0.6 for x in ep_rewards]
                     ep_reward_sum, ep_reward_mean = sum(ep_rewards), np.mean(np.asarray(ep_rewards))
                     print("Episode is done! Sum reward: {0}, mean reward: {1}".format(ep_reward_sum, ep_reward_mean))
 
                     # normalize rewards and apply them to gradients
-                    normalized_reward = ep_reward_sum - ep_reward_mean
-                    batch_reward.append(normalized_reward)
-                    weighted_grads = [normalized_reward * element for element in ep_log_grad]
-                    total_gradient = [tf.add(x, y) for x, y in zip(total_gradient, weighted_grads)] if len(total_gradient) != 0 else weighted_grads
+                    batch_reward.append(ep_reward_sum)
+                    batch_means.append(ep_reward_mean)
+                    total_gradient = [tf.add(x, y) for x, y in zip(total_gradient, ep_log_grad)] if len(total_gradient) != 0 else ep_log_grad
 
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad, weighted_grads = [], [], []
 
                 # end experience loop if we have enough of it
+                cnt = 0
                 if len(batch_reward) >= num_ep_per_batch:
                     break
                 else:
                     reset(env, start_frame)
-
             cnt += 1
+
         # take a single policy gradient update step
         num_episodes = len(batch_reward)
-        rew = sum(batch_reward) / num_episodes
+        rew_sum = sum(batch_reward)
+        rew_mean = sum(batch_means) / num_episodes
 
         # get gradients and apply them to model's variables - gradient is computed as a mean from episodes
-        total_gradient = [a / num_episodes for a in total_gradient]
+        total_gradient = [(a / num_episodes) * (rew_sum - rew_mean) for a in total_gradient]
         optimizer.apply_gradients(zip(total_gradient, model.trainable_variables),
                                   global_step=tf.train.get_or_create_global_step())
 
         # update summary
-        train_reward(rew)
+        train_reward(rew_mean)
         print('Epoch {0} finished! Training reward {1}'.format(epoch, train_reward.result()))
         with tfc.summary.always_record_summaries():
             tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
-            tfc.summary.scalar('metric/reward', rew, step=epoch)
+            tfc.summary.scalar('metric/reward', rew_mean, step=epoch)
             train_writer.flush()
 
         # save model
