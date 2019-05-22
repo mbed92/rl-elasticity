@@ -1,4 +1,6 @@
 import os
+
+import cv2
 import mujoco_py
 import numpy as np
 import tensorflow as tf
@@ -6,15 +8,13 @@ import tensorflow.contrib as tfc
 
 from agents import Core
 from utils import *
-import cv2
-
 
 tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1000):
-    # make environment, check spaces, get obs / act dims
+def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1000):
+    # make the environment
     path = os.path.join('.', 'models', 'ur5', 'UR5gripper.xml')
     scene = mujoco_py.load_model_from_path(path)
     env = mujoco_py.MjSim(scene)
@@ -24,6 +24,8 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
     train_log_path = os.path.join('.', 'logs')
     os.makedirs(train_log_path, exist_ok=True)
     train_writer = tfc.summary.create_file_writer(train_log_path)
+    checkpoint_prefix = os.path.join('.', 'saved', 'ckpt')
+    os.makedirs(checkpoint_prefix, exist_ok=True)
 
     # make core of policy network
     model = Core(num_controls=env.data.ctrl.size)
@@ -33,11 +35,8 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
     ckpt = tf.train.Checkpoint(optimizer=optimizer,
                                model=model,
                                optimizer_step=tf.train.get_or_create_global_step())
-    checkpoint_prefix = os.path.join('.', 'saved', 'ckpt')
-    os.makedirs(checkpoint_prefix, exist_ok=True)
-
     # run training
-    keep_random = 0.8
+    keep_random = 0.5
     for epoch in range(epochs):
         train_writer.set_as_default()
         train_reward = tfc.eager.metrics.Mean('reward')
@@ -56,7 +55,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
             obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
 
-            cv2.imshow("aaa", rgb[0])
+            cv2.imshow("trajectory", rgb[0])
             cv2.waitKey(1)
 
             # take action in the environment under the current policy
@@ -79,7 +78,6 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
 
                 # compute reward and loss
                 ep_rew = sum(get_reward(env, actions.numpy()))
-                # print(ep_rew)
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -90,16 +88,16 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
             # compute grad log-likelihood for a current episode
             if is_ep_done(ep_rew):
                 if len(ep_rewards) > 10:  # do not accept one-element lists of rewards or trash moves
+                    # normalize rewards and apply them to gradients
                     ep_rewards = standarize_rewards(ep_rewards)
-                    ep_rewards -= np.min(ep_rewards)    # make rewards always > 0
+                    lowest = np.abs(np.min(ep_rewards))
+                    ep_rewards += (2 * lowest)
                     ep_rewards = discount_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = sum(ep_rewards), np.mean(np.asarray(ep_rewards))
-                    print("Episode is done! Sum reward: {0}, mean reward: {1}".format(ep_reward_sum, ep_reward_mean))
-
-                    # normalize rewards and apply them to gradients
                     batch_reward.append(ep_reward_sum)
                     batch_means.append(ep_reward_mean)
                     total_gradient = [tf.add(x, y) for x, y in zip(total_gradient, ep_log_grad)] if len(total_gradient) != 0 else ep_log_grad
+                    print("Episode is done! Sum reward: {0}, mean reward: {1}, keep random ratio: {2}".format(ep_reward_sum, ep_reward_mean, keep_random))
 
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad, weighted_grads = [], [], []

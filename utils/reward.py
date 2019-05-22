@@ -10,7 +10,7 @@ def get_target_pose(sim, base_name, target_name):
     target_xyz = sim.data.get_body_xpos(target_name)
     target_quat = sim.data.get_body_xquat(target_name)
     if target_name == "gripperpalm":
-        target_xyz[-1] += 0.1
+        target_xyz[-1] += 0.2
 
     translation = target_xyz - base_xyz
     rotation_quat = quaternion_multiply(target_quat, quaternion_inverse(base_quat))
@@ -18,7 +18,7 @@ def get_target_pose(sim, base_name, target_name):
     return translation, rotation_quat
 
 
-def discount_rewards(r, gamma=0.98):
+def discount_rewards(r, gamma=0.8):
     discounted_r = np.zeros_like(r)
     running_add = 0
     r = np.asarray(r)
@@ -58,6 +58,8 @@ def get_reward(sim, u):
     grip_tool_dist = d if d < 0.3 else np.square(d)  # Huber loss
     gamma_1, gamma_2 = 0.9, 0.01
     position_rew = -gamma_1 * grip_tool_dist - gamma_2 * np.matmul(u, np.transpose(u))
+
+    # add a sparse rewards
     position_rew = (position_rew + 1) if d < 0.6 else position_rew
     position_rew = (position_rew + 2) if d < 0.5 else position_rew
     position_rew = (position_rew + 3) if d < 0.4 else position_rew
