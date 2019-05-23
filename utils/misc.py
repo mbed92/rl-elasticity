@@ -28,5 +28,6 @@ def setup_optimizer(restore, lr, model):
                                optimizer_step=tf.train.get_or_create_global_step())
     if restore:
         ckpt.restore(tf.train.latest_checkpoint(os.path.join(*model_dir)))
+        print("Weight successfully restored")
 
     return optimizer, ckpt

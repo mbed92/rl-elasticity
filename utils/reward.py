@@ -93,4 +93,4 @@ def standarize_rewards(rewards: list):
     ret += (2 * lowest)
     ret = discount_rewards(ret)
 
-    return ret.tolist()
+    return np.sum(ret), np.mean(ret)

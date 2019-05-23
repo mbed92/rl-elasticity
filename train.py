@@ -12,7 +12,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=True):
+def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=1000, restore=True):
     env, viewer = setup_environment()
     train_writer = setup_writer()
     train_writer.set_as_default()
@@ -71,8 +71,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
             if is_ep_done(ep_rew) or cnt > 400:
                 if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
                     # normalize rewards and apply them to gradients
-                    ep_rewards = standarize_rewards(ep_rewards)
-                    ep_reward_sum, ep_reward_mean = sum(ep_rewards), np.mean(np.asarray(ep_rewards))
+                    ep_reward_sum, ep_reward_mean = standarize_rewards(ep_rewards)
                     batch_reward.append(ep_reward_sum)
                     batch_means.append(ep_reward_mean)
                     total_gradient = [tf.add(x, y) for x, y in zip(total_gradient, ep_log_grad)] if len(total_gradient) != 0 else ep_log_grad
