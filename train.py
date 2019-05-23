@@ -29,7 +29,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
         ckpt.restore(tf.train.latest_checkpoint(os.path.join(*model_dir)))
 
     # run training
-    keep_random = 0.9
+    keep_random = initial_keep_random
     for epoch in range(epochs):
         train_writer.set_as_default()
         train_reward = tfc.eager.metrics.Mean('reward')
@@ -43,7 +43,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
 
         # start learning from the start_frame
         cnt = 0
-        keep_random += (epoch / epochs)
+        keep_random += ((epoch / epochs) / (1 / initial_keep_random))
         randomize_target(env)
         reset(env, start_frame)
         while True:
@@ -63,7 +63,6 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
                     actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
                 else:
                     actions = tf.random_uniform(tf.shape(ep_mean_act), ep_mean_act - 3 * ep_stddev, ep_mean_act + 3 * ep_stddev)
-
                 for i in range(len(env.data.ctrl)):
                     env.data.ctrl[i] = actions.numpy()[0, i]
 
