@@ -31,7 +31,7 @@ gripper_close = {
     "gripperfinger_middle_joint_3": 0.2
 }
 
-initial_keep_random = 0.5
+initial_keep_random = 0.9
 train_log = ('.', 'logs')
 model_dir = ('.', 'saved')
 output_path = ('.', 'saved_2')

@@ -14,17 +14,11 @@ tf.executing_eagerly()
 
 
 def test(step_size=5, start_frame=1000):
-    # make the environment
-    path = os.path.join('.', 'models', 'ur5', 'UR5gripper.xml')
-    scene = mujoco_py.load_model_from_path(path)
-    env = mujoco_py.MjSim(scene)
-    viewer = mujoco_py.MjRenderContextOffscreen(env, 0)
-
-    # make core of policy network
+    env, viewer = setup_environment()
     model = Core(num_controls=env.data.ctrl.size)
 
     # load weights
-    dir = os.path.join('.', 'saved2')
+    dir = os.path.join('.', 'saved')
     ckpt = tf.train.Checkpoint(model=model)
     ckpt.restore(tf.train.latest_checkpoint(dir))
 
@@ -33,7 +27,6 @@ def test(step_size=5, start_frame=1000):
     for i in range(2000):
         obs, pos = get_observations(env)
         rgb = get_camera_image(viewer, cam_id=0)
-
         cv2.imshow("trajectory", rgb[0])
         cv2.waitKey(1)
 
