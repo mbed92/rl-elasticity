@@ -89,7 +89,8 @@ def standarize_rewards(rewards: list):
     m, s = np.mean(rewards), np.sqrt(np.var(rewards))
     ret = (rewards - m) / (s + 1e-06)
 
-    # set to range from abs(minimal value) - 2* because first action has almost always the lowest reward and
-    # would be set to 0 (environment specific)
-    # ret -= 2*np.min(ret)
+    lowest = np.abs(np.min(ret))
+    ret += (2 * lowest)
+    ret = discount_rewards(ret)
+
     return ret.tolist()

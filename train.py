@@ -72,9 +72,6 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
                 if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
                     # normalize rewards and apply them to gradients
                     ep_rewards = standarize_rewards(ep_rewards)
-                    lowest = np.abs(np.min(ep_rewards))
-                    ep_rewards += (2 * lowest)
-                    ep_rewards = discount_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = sum(ep_rewards), np.mean(np.asarray(ep_rewards))
                     batch_reward.append(ep_reward_sum)
                     batch_means.append(ep_reward_mean)
