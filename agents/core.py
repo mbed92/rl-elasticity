@@ -7,68 +7,47 @@ class Core(tf.keras.Model):
         super(Core, self).__init__()
 
         self.rgb_process = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.Conv2D(128, (3, 3), 2, 'same', activation=tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Conv2D(32, (3, 3), 2, 'same', activation=tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Conv2D(16, (3, 3), 2, 'same', activation=tf.nn.relu),
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(256, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(128, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(64, None)
+            tf.keras.layers.Dense(128, tf.nn.relu),
+            tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dense(32, None)
         ])
 
         self.pose_process = tf.keras.Sequential([
-            tf.keras.layers.Dense(256, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(128, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(64, None)
+            tf.keras.layers.Dense(128, tf.nn.relu),
+            tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(32, None)
         ])
 
         self.joint_process = tf.keras.Sequential([
-            tf.keras.layers.Dense(256, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(128, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(64, None)
+            tf.keras.layers.Dense(128, tf.nn.relu),
+            tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(32, None)
         ])
 
-        self.RNN = tf.keras.layers.LSTMCell(64)
+        self.RNN = tf.keras.layers.LSTMCell(32)
 
         self.action_estimator = tf.keras.Sequential([
-            tf.keras.layers.Dense(64, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(32, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(num_controls, tf.nn.tanh)
+            tf.keras.layers.Dense(32, tf.nn.relu),
+            tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(num_controls, None)
         ])
 
         self.log_std_devs_estimator = tf.keras.Sequential([
-            tf.keras.layers.Dense(64, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Dense(32, None),
-            # tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
+            tf.keras.layers.Dense(32, tf.nn.relu),
+            tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(num_controls, None)
         ])
 

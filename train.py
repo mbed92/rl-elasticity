@@ -13,7 +13,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1000):
+def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=True):
     # make the environment
     path = os.path.join('.', 'models', 'ur5', 'UR5gripper.xml')
     scene = mujoco_py.load_model_from_path(path)
@@ -24,7 +24,8 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
     train_log_path = os.path.join('.', 'logs')
     os.makedirs(train_log_path, exist_ok=True)
     train_writer = tfc.summary.create_file_writer(train_log_path)
-    checkpoint_prefix = os.path.join('.', 'saved', 'ckpt')
+    checkpoint_dir = os.path.join('.', 'saved2')
+    checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt')
     os.makedirs(checkpoint_prefix, exist_ok=True)
 
     # make core of policy network
@@ -35,6 +36,9 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
     ckpt = tf.train.Checkpoint(optimizer=optimizer,
                                model=model,
                                optimizer_step=tf.train.get_or_create_global_step())
+    if restore:
+        ckpt.restore(tf.train.latest_checkpoint(checkpoint_dir))
+
     # run training
     keep_random = 0.5
     for epoch in range(epochs):
@@ -42,14 +46,16 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
         train_reward = tfc.eager.metrics.Mean('reward')
 
         # collect experience by acting in the environment with current policy
-        ep_rewards = []          # list for rewards accrued throughout ep
-        ep_log_grad = []         # list of log-likelihood gradients
-        batch_reward = []
-        batch_means = []
-        total_gradient = []
+        ep_rewards = []         # list for rewards accrued throughout ep
+        ep_log_grad = []        # list of log-likelihood gradients
+        batch_reward = []       # list of discounted and standarized sums rewards per epoch
+        batch_means = []        # list of discounted and standarized means rewards per epoch
+        total_gradient = []     # list of gradients multiplied by rewards per epochs
 
         # start learning from the start_frame
         cnt = 0
+        keep_random += (epoch / epochs)
+        randomize_target(env)
         reset(env, start_frame)
         while True:
             obs, pos = get_observations(env)
@@ -68,10 +74,9 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
                     actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
                 else:
                     actions = tf.random_uniform(tf.shape(ep_mean_act), ep_mean_act - 3 * ep_stddev, ep_mean_act + 3 * ep_stddev)
-                keep_random += (epoch/epochs)
 
                 for i in range(len(env.data.ctrl)):
-                    env.data.ctrl[i] += actions.numpy()[0, i]
+                    env.data.ctrl[i] = actions.numpy()[0, i]
 
                 # speed up simulation
                 step(env, step_size)
@@ -86,8 +91,8 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if is_ep_done(ep_rew):
-                if len(ep_rewards) > 10:  # do not accept one-element lists of rewards or trash moves
+            if is_ep_done(ep_rew) or cnt > 400:
+                if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
                     # normalize rewards and apply them to gradients
                     ep_rewards = standarize_rewards(ep_rewards)
                     lowest = np.abs(np.min(ep_rewards))

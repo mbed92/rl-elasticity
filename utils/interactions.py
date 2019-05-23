@@ -7,6 +7,12 @@ from .reward import get_target_pose
 EPS = 1e-8
 
 
+def randomize_target(env):
+    env.model.body_pos[2][1] = (2 * np.random.rand() - 1) / 10.0
+    env.forward()
+    return env
+
+
 def step(env, start_frame):
     try:
         for _ in range(start_frame):
@@ -65,6 +71,6 @@ def get_observations(sim):
 
 
 def is_ep_done(reward):
-    if reward < -1.0 or reward > 18:
+    if reward < -1.1 or reward > 18:
         return True
     return False
