@@ -103,12 +103,12 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
         print('Epoch {0} finished! Training reward {1}'.format(epoch, train_reward.result()))
         with tfc.summary.always_record_summaries():
             tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
-            tfc.summary.scalar('metric/reward', rew_mean, step=epoch)
+            tfc.summary.scalar('metric/reward', train_reward.result(), step=epoch)
             train_writer.flush()
 
         # save model
-        if epoch % 1 == 0:
-            ckpt.save(os.path.join(*model_nn))
+        if epoch % 200 == 0:
+            ckpt.save(os.path.join(*output_path))
 
 
 if __name__ == '__main__':
