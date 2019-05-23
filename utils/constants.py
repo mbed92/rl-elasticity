@@ -33,6 +33,6 @@ gripper_close = {
 
 initial_keep_random = 0.5
 train_log = ('.', 'logs')
-model_dir = ('.', 'saved2')
-model_nn = (model_dir, 'ckpt')
+model_dir = ('.', 'saved3')
+model_nn = (*model_dir, 'ckpt')
 mujoco_model = ('.', 'models', 'ur5', 'UR5gripper.xml')

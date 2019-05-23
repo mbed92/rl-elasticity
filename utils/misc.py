@@ -1,7 +1,8 @@
 import os
+import tensorflow as tf
 import tensorflow.contrib as tfc
 import mujoco_py
-from .constants import model_nn, train_log, mujoco_model
+from .constants import model_nn, train_log, mujoco_model, model_dir
 
 
 def setup_writer():
@@ -18,3 +19,14 @@ def setup_environment():
     env = mujoco_py.MjSim(scene)
     viewer = mujoco_py.MjRenderContextOffscreen(env, 0)
     return env, viewer
+
+
+def setup_optimizer(restore, lr, model):
+    optimizer = tf.train.AdamOptimizer(learning_rate=lr)
+    ckpt = tf.train.Checkpoint(optimizer=optimizer,
+                               model=model,
+                               optimizer_step=tf.train.get_or_create_global_step())
+    if restore:
+        ckpt.restore(tf.train.latest_checkpoint(os.path.join(*model_dir)))
+
+    return optimizer, ckpt

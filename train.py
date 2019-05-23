@@ -1,7 +1,6 @@
 import os
 
 import cv2
-import mujoco_py
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib as tfc
@@ -16,40 +15,32 @@ tf.executing_eagerly()
 def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=True):
     env, viewer = setup_environment()
     train_writer = setup_writer()
+    train_writer.set_as_default()
+    train_reward = tfc.eager.metrics.Mean('reward')
 
     # make core of policy network
     model = Core(num_controls=env.data.ctrl.size)
 
     # create optimizer for the apply_gradients() and load weights
-    optimizer = tf.train.AdamOptimizer(learning_rate=lr)
-    ckpt = tf.train.Checkpoint(optimizer=optimizer,
-                               model=model,
-                               optimizer_step=tf.train.get_or_create_global_step())
-    if restore:
-        ckpt.restore(tf.train.latest_checkpoint(os.path.join(*model_dir)))
+    optimizer, ckpt = setup_optimizer(restore, lr, model)
 
     # run training
     keep_random = initial_keep_random
     for epoch in range(epochs):
-        train_writer.set_as_default()
-        train_reward = tfc.eager.metrics.Mean('reward')
-
-        # collect experience by acting in the environment with current policy
         ep_rewards = []         # list for rewards accrued throughout ep
         ep_log_grad = []        # list of log-likelihood gradients
         batch_reward = []       # list of discounted and standarized sums rewards per epoch
         batch_means = []        # list of discounted and standarized means rewards per epoch
         total_gradient = []     # list of gradients multiplied by rewards per epochs
 
-        # start learning from the start_frame
+        # start trajectory
         cnt = 0
-        keep_random += ((epoch / epochs) / (1 / initial_keep_random))
-        randomize_target(env)
-        reset(env, start_frame)
+        randomize_target(env)                   # get the rope set to the random position
+        reset(env, start_frame)                 # lt the environment be static
+        keep_random += ((epoch / epochs) / (1 / initial_keep_random))   # keep prob of taking random action in 0 - 1
         while True:
             obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
-
             cv2.imshow("trajectory", rgb[0])
             cv2.waitKey(1)
 
@@ -66,10 +57,8 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
                 for i in range(len(env.data.ctrl)):
                     env.data.ctrl[i] = actions.numpy()[0, i]
 
-                # speed up simulation
+                # act, compute reward and loss
                 step(env, step_size)
-
-                # compute reward and loss
                 ep_rew = sum(get_reward(env, actions.numpy()))
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
@@ -95,7 +84,6 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad, weighted_grads = [], [], []
 
-                # end experience loop if we have enough of it
                 cnt = 0
                 if len(batch_reward) >= num_ep_per_batch:
                     break
@@ -122,8 +110,8 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
             train_writer.flush()
 
         # save model
-        if epoch % 60 == 0:
-            ckpt.save(model_nn)
+        if epoch % 1 == 0:
+            ckpt.save(os.path.join(*model_nn))
 
 
 if __name__ == '__main__':
