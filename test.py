@@ -24,13 +24,13 @@ def test(step_size=5, start_frame=1000):
     model = Core(num_controls=env.data.ctrl.size)
 
     # load weights
-    dir = os.path.join('.', 'saved')
+    dir = os.path.join('.', 'saved2')
     ckpt = tf.train.Checkpoint(model=model)
     ckpt.restore(tf.train.latest_checkpoint(dir))
 
     randomize_target(env)
     reset(env, start_frame)
-    for i in range(1000):
+    for i in range(2000):
         obs, pos = get_observations(env)
         rgb = get_camera_image(viewer, cam_id=0)
 
@@ -47,7 +47,7 @@ def test(step_size=5, start_frame=1000):
         # speed up simulation
         step(env, step_size)
 
-        if i % 200 == 0:
+        if i % 500 == 0:
             randomize_target(env)
             reset(env, start_frame)
 

@@ -14,33 +14,22 @@ tf.executing_eagerly()
 
 
 def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=True):
-    # make the environment
-    path = os.path.join('.', 'models', 'ur5', 'UR5gripper.xml')
-    scene = mujoco_py.load_model_from_path(path)
-    env = mujoco_py.MjSim(scene)
-    viewer = mujoco_py.MjRenderContextOffscreen(env, 0)
-
-    # setup writer
-    train_log_path = os.path.join('.', 'logs')
-    os.makedirs(train_log_path, exist_ok=True)
-    train_writer = tfc.summary.create_file_writer(train_log_path)
-    checkpoint_dir = os.path.join('.', 'saved2')
-    checkpoint_prefix = os.path.join(checkpoint_dir, 'ckpt')
-    os.makedirs(checkpoint_prefix, exist_ok=True)
+    env, viewer = setup_environment()
+    train_writer = setup_writer()
 
     # make core of policy network
     model = Core(num_controls=env.data.ctrl.size)
 
-    # create optimizer for the apply_gradients()
+    # create optimizer for the apply_gradients() and load weights
     optimizer = tf.train.AdamOptimizer(learning_rate=lr)
     ckpt = tf.train.Checkpoint(optimizer=optimizer,
                                model=model,
                                optimizer_step=tf.train.get_or_create_global_step())
     if restore:
-        ckpt.restore(tf.train.latest_checkpoint(checkpoint_dir))
+        ckpt.restore(tf.train.latest_checkpoint(os.path.join(*model_dir)))
 
     # run training
-    keep_random = 0.5
+    keep_random = 0.9
     for epoch in range(epochs):
         train_writer.set_as_default()
         train_reward = tfc.eager.metrics.Mean('reward')
@@ -135,7 +124,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
 
         # save model
         if epoch % 60 == 0:
-            ckpt.save(checkpoint_prefix)
+            ckpt.save(model_nn)
 
 
 if __name__ == '__main__':

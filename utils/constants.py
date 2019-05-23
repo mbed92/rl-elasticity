@@ -30,3 +30,8 @@ gripper_close = {
     "gripperfinger_middle_joint_2": 0.7,
     "gripperfinger_middle_joint_3": 0.2
 }
+
+train_log = ('.', 'logs')
+model_dir = ('.', 'saved2')
+model_nn = (model_dir, 'ckpt')
+mujoco_model = ('.', 'models', 'ur5', 'UR5gripper.xml')
