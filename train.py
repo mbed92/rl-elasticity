@@ -42,7 +42,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
         cnt = 0
         randomize_target(env)                   # get the rope set to the random position
         reset(env, start_frame)                 # lt the environment be static
-        keep_random += ((epoch / epochs) / (1 / initial_keep_random))   # keep prob of taking random action in 0 - 1
+        keep_random = initial_keep_random + ((epoch / epochs) / (1 / initial_keep_random))   # keep prob of taking random action in 0 - 1
         while True:
             obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
