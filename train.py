@@ -12,7 +12,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=False):
+def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=False):
     env, viewer = setup_environment()
     train_writer = setup_writer()
     train_writer.set_as_default()
@@ -27,7 +27,6 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
     optimizer, ckpt = setup_optimizer(restore, lr, model)
 
     # run training
-    keep_random = initial_keep_random
     for epoch in range(epochs):
         ep_rewards = []         # list for rewards accrued throughout ep
         ep_log_grad = []        # list of log-likelihood gradients
@@ -55,7 +54,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
                 ep_stddev = tf.exp(ep_log_dev)
 
                 # apply actions
-                if np.random.rand() > keep_random:
+                if np.random.uniform() < keep_random:
                     actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
                 else:
                     actions = tf.random_uniform(tf.shape(ep_mean_act), ep_mean_act - 3 * ep_stddev, ep_mean_act + 3 * ep_stddev)
