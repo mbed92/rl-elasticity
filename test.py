@@ -22,8 +22,9 @@ def test(step_size=5, start_frame=1000):
     ckpt = tf.train.Checkpoint(model=model)
     ckpt.restore(tf.train.latest_checkpoint(dir))
 
-    randomize_target(env)
+    # randomize_target(env)
     reset(env, start_frame)
+    open_hand(env)
     for i in range(2000):
         obs, pos = get_observations(env)
         rgb = get_camera_image(viewer, cam_id=0)
@@ -34,14 +35,17 @@ def test(step_size=5, start_frame=1000):
         ep_stddev = tf.exp(ep_log_dev)
         actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
 
-        for k in range(len(env.data.ctrl)):
+        for k in range(len(env.data.ctrl) - 4):
             env.data.ctrl[k] = actions.numpy()[0, k]
 
         # speed up simulation
         step(env, step_size)
 
+        if get_reward(env, actions) > 10:
+            close_hand(env)
+
         if i % 500 == 0:
-            randomize_target(env)
+            # randomize_target(env)
             reset(env, start_frame)
 
 

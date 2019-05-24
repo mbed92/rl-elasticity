@@ -10,7 +10,7 @@ def get_target_pose(sim, base_name, target_name):
     target_xyz = sim.data.get_body_xpos(target_name)
     target_quat = sim.data.get_body_xquat(target_name)
     if target_name == "gripperpalm":
-        target_xyz[-1] += 0.2
+        target_xyz[-1] += 0.1
 
     translation = target_xyz - base_xyz
     rotation_quat = quaternion_multiply(target_quat, quaternion_inverse(base_quat))
@@ -56,7 +56,7 @@ def get_reward(sim, u):
     # reward from decreasing the distance between a gripper and a grip point - reach reward
     d = np.linalg.norm(grip[0] - tool[0])
     grip_tool_dist = d if d < 0.3 else np.square(d)  # Huber loss
-    gamma_1, gamma_2 = 0.9, 0.01
+    gamma_1, gamma_2 = 0.9, 0.2
     position_rew = -gamma_1 * grip_tool_dist - gamma_2 * np.matmul(u, np.transpose(u))
 
     # add a sparse rewards
@@ -66,20 +66,7 @@ def get_reward(sim, u):
     position_rew = (position_rew + 5) if d < 0.3 else position_rew
     position_rew = (position_rew + 8) if d < 0.2 else position_rew
 
-    # reward from stretching the object to the specified point
-    # grip_body_dist = np.sum(np.abs(grip[0] - body[0]))
-    # obj_reward = 1 / grip_body_dist if grip_body_dist > 0.1 else 100
-    # position_rew *= 0.6
-    # if grip_tool_dist < 0.2 and grip_body_dist < 0.2:
-    #     position_rew *= 1.3
-    #     obj_reward *= 1.3
-    # reward from grasping the object (if it's close enough)
-    # grip_reward = 0
-    # if is_closed(sim) and grip_tool_dist < 0.2:
-    #     grip_reward = 100
-    # print(d, position_rew)
-
-    return position_rew  # , obj_reward, grip_reward
+    return position_rew, d
 
 
 def standarize_rewards(rewards: list):

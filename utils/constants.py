@@ -31,9 +31,9 @@ gripper_close = {
     "gripperfinger_middle_joint_3": 0.2
 }
 
-initial_keep_random = 0.9
+initial_keep_random = 0.5
 train_log = ('.', 'logs')
 model_dir = ('.', 'saved')
-output_path = ('.', 'saved_2')
+output_path = ('.', 'saved')
 model_nn = (*model_dir, 'ckpt')
 mujoco_model = ('.', 'models', 'ur5', 'UR5gripper.xml')

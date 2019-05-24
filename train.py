@@ -17,9 +17,11 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
     train_writer = setup_writer()
     train_writer.set_as_default()
     train_reward = tfc.eager.metrics.Mean('reward')
+    train_distance = tfc.eager.metrics.Mean('distance')
 
     # make core of policy network
-    model = Core(num_controls=env.data.ctrl.size)
+    num_inputs = env.data.ctrl.size - 4
+    model = Core(num_controls=num_inputs)
 
     # create optimizer for the apply_gradients() and load weights
     optimizer, ckpt = setup_optimizer(restore, lr, model)
@@ -31,6 +33,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
         ep_log_grad = []        # list of log-likelihood gradients
         batch_reward = []       # list of discounted and standarized sums rewards per epoch
         batch_means = []        # list of discounted and standarized means rewards per epoch
+        batch_distances = []    # list of distances in a trajectory
         total_gradient = []     # list of gradients multiplied by rewards per epochs
 
         # start trajectory
@@ -38,6 +41,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
         randomize_target(env)                   # get the rope set to the random position
         reset(env, start_frame)                 # lt the environment be static
         keep_random += ((epoch / epochs) / (1 / initial_keep_random))   # keep prob of taking random action in 0 - 1
+        open_hand(env)                          # assume that gripper is open
         while True:
             obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
@@ -54,13 +58,13 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
                     actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
                 else:
                     actions = tf.random_uniform(tf.shape(ep_mean_act), ep_mean_act - 3 * ep_stddev, ep_mean_act + 3 * ep_stddev)
-                for i in range(len(env.data.ctrl)):
-                    env.data.ctrl[i] = actions.numpy()[0, i]
+                for i in range(num_inputs):
+                    env.data.ctrl[i] += actions.numpy()[0, i]
 
                 # act, compute reward and loss
                 step(env, step_size)
-                ep_rew = sum(get_reward(env, actions.numpy()))
-                ep_rewards.append(ep_rew)
+                ep_rew, distance = get_reward(env, actions.numpy())
+                ep_rewards.append(sum(ep_rew))
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
             # compute and store gradients
@@ -68,9 +72,8 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if is_ep_done(ep_rew) or cnt > 400:
+            if 0.15 > distance or distance > 1.0 or cnt > 400:
                 if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
-                    # normalize rewards and apply them to gradients
                     ep_reward_sum, ep_reward_mean = standarize_rewards(ep_rewards)
                     batch_reward.append(ep_reward_sum)
                     batch_means.append(ep_reward_mean)
@@ -79,7 +82,6 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
 
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad, weighted_grads = [], [], []
-
                 cnt = 0
                 if len(batch_reward) >= num_ep_per_batch:
                     break
@@ -99,10 +101,12 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
 
         # update summary
         train_reward(rew_mean)
+        train_distance(distance)
         print('Epoch {0} finished! Training reward {1}'.format(epoch, train_reward.result()))
         with tfc.summary.always_record_summaries():
             tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
             tfc.summary.scalar('metric/reward', train_reward.result(), step=epoch)
+            tfc.summary.scalar('metric/final_distance', train_distance.result(), step=epoch)
             train_writer.flush()
 
         # save model

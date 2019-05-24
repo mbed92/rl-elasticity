@@ -7,6 +7,22 @@ from .reward import get_target_pose
 EPS = 1e-8
 
 
+def open_hand(env):
+    for i in range(6, len(env.data.ctrl)):
+        env.data.ctrl[i] = -0.1
+    step(env, 50)
+    for i in range(6, len(env.data.ctrl)):
+        env.data.ctrl[i] = 0
+
+
+def close_hand(env):
+    for i in range(6, len(env.data.ctrl)):
+        env.data.ctrl[i] = 0.4
+    step(env, 10)
+    for i in range(6, len(env.data.ctrl)):
+        env.data.ctrl[i] = 0.0
+
+
 def randomize_target(env):
     env.model.body_pos[2][1] = (2 * np.random.rand() - 1) / 10.0
     env.forward()
@@ -70,7 +86,7 @@ def get_observations(sim):
     return np.float32(obs[np.newaxis, :]), np.float32(poses[np.newaxis, :])
 
 
-def is_ep_done(reward):
-    if reward < -1.1 or reward > 18:
+def is_ep_done(distance):
+    if distance < 0.15 or distance > 1.0:
         return True
     return False

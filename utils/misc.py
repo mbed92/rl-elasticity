@@ -2,15 +2,14 @@ import os
 import tensorflow as tf
 import tensorflow.contrib as tfc
 import mujoco_py
-from .constants import model_nn, train_log, mujoco_model, model_dir
+from .constants import train_log, mujoco_model, model_dir
 
 
 def setup_writer():
-    train_log_path = os.path.join(*train_log)
-    checkpoint_prefix = os.path.join(*model_nn)
-    os.makedirs(train_log_path, exist_ok=True)
-    os.makedirs(checkpoint_prefix, exist_ok=True)
-    return tfc.summary.create_file_writer(train_log_path)
+    t_log = os.path.join(*train_log)
+    os.makedirs(t_log, exist_ok=True)
+    os.makedirs(os.path.join(*model_dir), exist_ok=True)
+    return tfc.summary.create_file_writer(t_log)
 
 
 def setup_environment():
