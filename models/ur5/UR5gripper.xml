@@ -111,8 +111,8 @@ Control Engineering / Automation Engineering
         <geom name='floor' material="floor_mat" pos='0 0 0' size='2.5 2.5 0.1'  type='plane' />
 
         <!--Fix cylinder-->
-        <body name="fix" pos=".1 -.5 0.5">
-            <geom type='cylinder' size="0.02 0.5" />
+        <body name="fix" pos=".6 -.5 .5">
+            <geom type='cylinder' size="0.02 0.9" />
         </body>
 
         <!--Object - B0 by naming convention and 0 the first point-->

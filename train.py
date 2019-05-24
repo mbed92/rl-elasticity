@@ -12,7 +12,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=1000, restore=True):
+def train(epochs=1000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=False):
     env, viewer = setup_environment()
     train_writer = setup_writer()
     train_writer.set_as_default()
@@ -20,7 +20,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
     train_distance = tfc.eager.metrics.Mean('distance')
 
     # make core of policy network
-    num_inputs = env.data.ctrl.size - 4
+    num_inputs = env.data.ctrl.size
     model = Core(num_controls=num_inputs)
 
     # create optimizer for the apply_gradients() and load weights
@@ -33,8 +33,10 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
         ep_log_grad = []        # list of log-likelihood gradients
         batch_reward = []       # list of discounted and standarized sums rewards per epoch
         batch_means = []        # list of discounted and standarized means rewards per epoch
-        batch_distances = []    # list of distances in a trajectory
         total_gradient = []     # list of gradients multiplied by rewards per epochs
+
+        # randomize final point
+        set_random_target()
 
         # start trajectory
         cnt = 0
@@ -72,7 +74,7 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if 0.15 > distance or distance > 1.0 or cnt > 400:
+            if distance > 0.9 or cnt > 500:
                 if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
                     ep_reward_sum, ep_reward_mean = standarize_rewards(ep_rewards)
                     batch_reward.append(ep_reward_sum)
@@ -106,12 +108,12 @@ def train(epochs=1000, num_ep_per_batch=1, lr=1e-03, step_size=5, start_frame=10
         with tfc.summary.always_record_summaries():
             tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
             tfc.summary.scalar('metric/reward', train_reward.result(), step=epoch)
-            tfc.summary.scalar('metric/final_distance', train_distance.result(), step=epoch)
+            tfc.summary.scalar('metric/distance', train_distance.result(), step=epoch)
             train_writer.flush()
 
         # save model
-        if epoch % 200 == 0:
-            ckpt.save(os.path.join(*output_path))
+        if epoch % 25 == 0:
+            ckpt.save(os.path.join(*model_nn))
 
 
 if __name__ == '__main__':

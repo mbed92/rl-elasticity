@@ -1,10 +1,36 @@
-import numpy as np
 import mujoco_py
-from .constants import start_qpos
-from .reward import get_target_pose
+from .constants import *
+from .kinematics import *
 
 
+random_target = np.array([sum(x_range) / 2, sum(y_range) / 2, sum(z_range) / 2])
 EPS = 1e-8
+
+
+def get_target_pose(sim, base_name, target_name):
+    base_xyz = sim.data.get_body_xpos(base_name)
+    base_quat = sim.data.get_body_xquat(base_name)
+    target_xyz = sim.data.get_body_xpos(target_name)
+    target_quat = sim.data.get_body_xquat(target_name)
+    if target_name == "gripperpalm":
+        target_xyz[-1] += 0.1
+
+    translation = target_xyz - base_xyz
+    rotation_quat = quaternion_multiply(target_quat, quaternion_inverse(base_quat))
+
+    return translation, rotation_quat
+
+
+def get_random_target():
+    global random_target
+    return random_target
+
+
+def set_random_target():
+    global random_target
+    random_target[0] = np.random.uniform(x_range[0], x_range[1])
+    random_target[1] = np.random.uniform(y_range[0], y_range[1])
+    random_target[2] = np.random.uniform(z_range[0], z_range[1])
 
 
 def open_hand(env):
@@ -81,12 +107,7 @@ def get_observations(sim):
     obs.append(sim.data.get_joint_qpos("gripperfinger_middle_joint_3"))
     poses.append(get_target_pose(sim, 'base_link', 'gripperpalm')[0])
     poses.append(get_target_pose(sim, 'base_link', 'CB17')[0])
+    poses.append(get_random_target())
     obs = np.asarray(obs)
     poses = np.asarray(poses)
     return np.float32(obs[np.newaxis, :]), np.float32(poses[np.newaxis, :])
-
-
-def is_ep_done(distance):
-    if distance < 0.15 or distance > 1.0:
-        return True
-    return False

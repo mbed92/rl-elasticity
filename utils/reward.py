@@ -1,21 +1,5 @@
-from scipy.special import huber
-
-from .kinematics import *
 from .constants import gripper_close
-
-
-def get_target_pose(sim, base_name, target_name):
-    base_xyz = sim.data.get_body_xpos(base_name)
-    base_quat = sim.data.get_body_xquat(base_name)
-    target_xyz = sim.data.get_body_xpos(target_name)
-    target_quat = sim.data.get_body_xquat(target_name)
-    if target_name == "gripperpalm":
-        target_xyz[-1] += 0.1
-
-    translation = target_xyz - base_xyz
-    rotation_quat = quaternion_multiply(target_quat, quaternion_inverse(base_quat))
-
-    return translation, rotation_quat
+from .interactions import *
 
 
 def discount_rewards(r, gamma=0.8):
@@ -48,23 +32,33 @@ def is_closed(sim):
 
 def get_reward(sim, u):
 
+    def _add_sparse(rew, d):
+        rew = (rew + 1) if d < 0.6 else rew
+        rew = (rew + 2) if d < 0.5 else rew
+        rew = (rew + 3) if d < 0.4 else rew
+        rew = (rew + 5) if d < 0.3 else rew
+        rew = (rew + 8) if d < 0.2 else rew
+        return rew
+
     # get the poses of targets in the robot's base coordinate system
     tool = get_target_pose(sim, 'base_link', 'gripperpalm')
     grip = get_target_pose(sim, 'base_link', 'CB17')
-    # body = get_target_pose(sim, 'base_link', 'fix')
+    body = get_random_target()
 
     # reward from decreasing the distance between a gripper and a grip point - reach reward
     d = np.linalg.norm(grip[0] - tool[0])
-    grip_tool_dist = d if d < 0.3 else np.square(d)  # Huber loss
-    gamma_1, gamma_2 = 0.9, 0.2
+    grip_tool_dist = d if d < 0.3 else np.square(d)
+    gamma_1, gamma_2, gamma_3 = 0.9, 0.2, 0.9
     position_rew = -gamma_1 * grip_tool_dist - gamma_2 * np.matmul(u, np.transpose(u))
 
     # add a sparse rewards
-    position_rew = (position_rew + 1) if d < 0.6 else position_rew
-    position_rew = (position_rew + 2) if d < 0.5 else position_rew
-    position_rew = (position_rew + 3) if d < 0.4 else position_rew
-    position_rew = (position_rew + 5) if d < 0.3 else position_rew
-    position_rew = (position_rew + 8) if d < 0.2 else position_rew
+    position_rew = _add_sparse(position_rew, d)
+
+    if d < 0.2:
+        d2 = np.linalg.norm(body - grip[0])
+        target_tool_dist = d2 if d2 < 0.3 else np.square(d2)
+        position_rew -= -gamma_3 * target_tool_dist
+        position_rew = _add_sparse(position_rew, d2)
 
     return position_rew, d
 
