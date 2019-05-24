@@ -106,7 +106,7 @@ Control Engineering / Automation Engineering
         <!--Lighting parameters-->
         <light name="light3" mode="targetbody" target="box_link" directional="true" pos="1 1 3" />
         <!--Camera parameters-->
-        <camera name="main1" mode="targetbody" target="box_link" pos="1.3 -1.3 2.0" fovy="42.5"/>
+        <camera name="main1" mode="targetbody" target="box_link" pos="1.2 -1.2 1.9" fovy="42.5"/>
         <!--Floor Property-->
         <geom name='floor' material="floor_mat" pos='0 0 0' size='2.5 2.5 0.1'  type='plane' />
 
@@ -119,7 +119,7 @@ Control Engineering / Automation Engineering
         <body name="CB0" pos="0.25 0 0.875">
             <!--<freejoint />-->
             <composite prefix="C" type="rope" count="20 1 1" spacing="0.022">
-                <joint kind="stretch" damping="1000" stiffness="0.05"/>
+                <joint kind="stretch" damping="1000" stiffness="0.9"/>
                 <geom type="capsule" size=".008 .01" mass="0.01" rgba=".8 .2 .1 1" condim="1"/>
             </composite>
         </body>

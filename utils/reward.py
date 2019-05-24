@@ -57,7 +57,7 @@ def get_reward(sim, u):
     if d < 0.2:
         d2 = np.linalg.norm(body - grip[0])
         target_tool_dist = d2 if d2 < 0.3 else np.square(d2)
-        position_rew -= -gamma_3 * target_tool_dist
+        position_rew += -gamma_3 * target_tool_dist
         position_rew = _add_sparse(position_rew, d2)
 
     return position_rew, d

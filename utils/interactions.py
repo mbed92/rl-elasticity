@@ -60,7 +60,8 @@ def step(env, start_frame):
         for _ in range(start_frame):
             env.step()
     except mujoco_py.builder.MujocoException:
-        step(env, start_frame)
+        return False
+    return True
 
 
 def reset(env, start_frame):
@@ -73,10 +74,12 @@ def reset(env, start_frame):
     env.data.set_joint_qpos("wrist_3_joint", start_qpos["wrist_3_joint"])
 
     if start_frame > 0:
-        step(env, start_frame)
+        isOk = step(env, start_frame)
+        if not isOk:
+            step(env, start_frame)
 
 
-def get_camera_image(viewer, cam_id, width=320, height=240, normalize=True):
+def get_camera_image(viewer, cam_id, width=640, height=480, normalize=True):
     viewer.render(width, height, cam_id)
     rgb = np.asarray(viewer.read_pixels(width, height, depth=False)[::-1, :, :], dtype=np.float32)
     if normalize:
