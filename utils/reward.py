@@ -32,7 +32,7 @@ def is_closed(sim):
 
 def get_sparse_reward(sim, reward):
     tool = get_target_pose(sim, 'base_link', 'gripperpalm')
-    grip = get_target_pose(sim, 'base_link', 'CB17')
+    grip = get_target_pose(sim, 'base_link', 'CB13')
     body = get_random_target()
     reward -= 1
 

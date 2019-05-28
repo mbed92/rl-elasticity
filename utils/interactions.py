@@ -106,7 +106,7 @@ def get_observations(sim):
     obs.append(sim.data.get_joint_qpos("gripperfinger_middle_joint_2"))
     obs.append(sim.data.get_joint_qpos("gripperfinger_middle_joint_3"))
     poses.append(get_target_pose(sim, 'base_link', 'gripperpalm')[0])
-    poses.append(get_target_pose(sim, 'base_link', 'CB17')[0])
+    poses.append(get_target_pose(sim, 'base_link', 'CB13')[0])
     poses.append(get_random_target())
     obs = np.asarray(obs)
     poses = np.asarray(poses)

@@ -16,7 +16,7 @@ Control Engineering / Automation Engineering
               inertiafromgeom="true"
               texturedir="textures/"
               meshdir="mesh/visual/"/>
-    <option timestep="2e-4"
+    <option timestep="2e-3"
             iterations="10"
             tolerance="1e-7"
             impratio="20"/>
@@ -118,10 +118,10 @@ Control Engineering / Automation Engineering
         <!--Object - CB0 by naming convention and 0 the first point-->
         <body name="CB0" pos="0.25 0 0.875">
             <!--<freejoint />-->
-            <composite prefix="C" type="rope" count="15 1 1" spacing="0.022">
+            <composite prefix="C" type="rope" count="15 1 1" spacing="0.025">
                 <joint kind="stretch" damping="10000" stiffness="1.0"/>
                 <joint kind="twist" damping="10000" stiffness="100"/>
-                <geom type="capsule" size=".0125 .003" mass="0.1" rgba=".8 .2 .1 1" condim="1"/>
+                <geom type="capsule" size=".012 .003" mass="0.1" rgba=".8 .2 .1 1" condim="4"/>
             </composite>
         </body>
 
