@@ -38,17 +38,17 @@ def get_sparse_reward(sim, reward):
 
     d = np.linalg.norm(grip[0] - tool[0])
     if d < 0.25:
-        reward += 100
+        reward += 500
     if d < 0.05:
         reward += 1000
 
     d2 = np.linalg.norm(body - grip[0])
     if d2 < 0.2:
-        reward += 100
+        reward += 500
     if d2 < 0.05:
         reward += 1000
 
-    return reward
+    return reward, d, d2
 
 
 def get_distance_reward(sim, u):

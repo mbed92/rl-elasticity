@@ -17,7 +17,8 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
     train_writer = setup_writer()
     train_writer.set_as_default()
     train_reward = tfc.eager.metrics.Mean('reward')
-    train_distance = tfc.eager.metrics.Mean('distance')
+    train_distance_object = tfc.eager.metrics.Mean('distance')
+    train_distance_target = tfc.eager.metrics.Mean('distance')
 
     # make core of policy network
     num_inputs = env.data.ctrl.size
@@ -42,7 +43,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
         randomize_target(env)
         reset(env, start_frame)
         keep_random = initial_keep_random + ((epoch / epochs) / (1 / initial_keep_random))
-        ep_rew = [0]
+        ep_rew = 0
         while True:
             obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
@@ -66,9 +67,8 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
                 step(env, step_size)
 
                 # ep_rew, distance = get_distance_reward(env, actions.numpy())
-                ep_rew, distance = get_sparse_reward(env, ep_rew)
-
-                ep_rewards.append(sum(ep_rew))
+                ep_rew, distance_object, distance_target = get_sparse_reward(env, ep_rew)
+                ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
             # compute and store gradients
@@ -76,7 +76,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if distance > 0.8 or cnt > 400:
+            if distance_object > 0.8 or cnt > 400:
                 if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
                     ep_reward_sum, ep_reward_mean = standarize_rewards(ep_rewards)
                     batch_reward.append(ep_reward_sum)
@@ -106,10 +106,12 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
         # update summary
         with tfc.summary.always_record_summaries():
             train_reward(rew_mean)
-            train_distance(distance)
+            train_distance_object(distance_object)
+            train_distance_target(distance_target)
             tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
             tfc.summary.scalar('metric/reward', train_reward.result(), step=epoch)
-            tfc.summary.scalar('metric/distance', train_distance.result(), step=epoch)
+            tfc.summary.scalar('metric/distance_object', train_distance_object.result(), step=epoch)
+            tfc.summary.scalar('metric/distance_target', train_distance_target.result(), step=epoch)
             print('Epoch {0} finished! Training reward {1}'.format(epoch, train_reward.result()))
             train_writer.flush()
 
