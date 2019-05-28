@@ -43,7 +43,6 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
         randomize_target(env)
         reset(env, start_frame)
         keep_random = initial_keep_random + ((epoch / epochs) / (1 / initial_keep_random))
-        ep_rew = 0
         while True:
             obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
@@ -67,7 +66,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
                 step(env, step_size)
 
                 # ep_rew, distance = get_distance_reward(env, actions.numpy())
-                ep_rew, distance_object, distance_target = get_sparse_reward(env, ep_rew)
+                ep_rew, distance_object, distance_target = get_sparse_reward(env)
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 

@@ -1,14 +1,11 @@
-from .constants import gripper_close
 from .interactions import *
 
 
-def discount_rewards(r, gamma=0.8):
+def discount_rewards(r, gamma=0.98):
     discounted_r = np.zeros_like(r)
-    running_add = 0
     r = np.asarray(r)
-    for t in reversed(range(0, r.size)):
-        running_add = running_add * gamma + r[t]
-        discounted_r[t] = running_add
+    for t in range(0, r.size):
+        discounted_r[t] = np.power(gamma, r.size - t - 1) + r[t]
     return discounted_r
 
 
@@ -30,25 +27,25 @@ def is_closed(sim):
     return False
 
 
-def get_sparse_reward(sim, reward):
+def get_sparse_reward(sim):
     tool = get_target_pose(sim, 'base_link', 'gripperpalm')
     grip = get_target_pose(sim, 'base_link', 'CB13')
     body = get_random_target()
-    reward -= 1
+    reward = -1.0
 
-    d = np.linalg.norm(grip[0] - tool[0])
-    if d < 0.25:
-        reward += 500
-    if d < 0.05:
-        reward += 1000
-
+    d1 = np.linalg.norm(grip[0] - tool[0])
     d2 = np.linalg.norm(body - grip[0])
-    if d2 < 0.2:
-        reward += 500
-    if d2 < 0.05:
-        reward += 1000
 
-    return reward, d, d2
+    if d1 < 0.25:
+        reward = 100.0
+        if d1 < 0.1:
+            reward = 200.0
+            if d2 < 0.15:
+                reward = 300.0
+                if d2 < 0.05:
+                    reward = 400.0
+
+    return reward, d1, d2
 
 
 def get_distance_reward(sim, u):
