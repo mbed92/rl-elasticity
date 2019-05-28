@@ -12,7 +12,7 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=1000, restore=False):
+def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1000, restore=False):
     env, viewer = setup_environment()
     train_writer = setup_writer()
     train_writer.set_as_default()
@@ -39,9 +39,10 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
 
         # start trajectory
         cnt = 0
-        randomize_target(env)                   # get the rope set to the random position
+        randomize_target(env)
         reset(env, start_frame)
         keep_random = initial_keep_random + ((epoch / epochs) / (1 / initial_keep_random))
+        ep_rew = [0]
         while True:
             obs, pos = get_observations(env)
             rgb = get_camera_image(viewer, cam_id=0)
@@ -62,12 +63,11 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
                     env.data.ctrl[i] += actions.numpy()[0, i]
 
                 # act, compute reward and loss
-                isOk = step(env, step_size)
-                if not isOk:
-                    reset(env, start_frame)
-                    continue
+                step(env, step_size)
 
-                ep_rew, distance = get_reward(env, actions.numpy())
+                # ep_rew, distance = get_distance_reward(env, actions.numpy())
+                ep_rew, distance = get_sparse_reward(env, ep_rew)
+
                 ep_rewards.append(sum(ep_rew))
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -76,7 +76,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if distance > 0.9 or cnt > 300:
+            if distance > 0.8 or cnt > 400:
                 if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
                     ep_reward_sum, ep_reward_mean = standarize_rewards(ep_rewards)
                     batch_reward.append(ep_reward_sum)
@@ -104,17 +104,17 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=5, start_frame=10
                                   global_step=tf.train.get_or_create_global_step())
 
         # update summary
-        train_reward(rew_mean)
-        train_distance(distance)
-        print('Epoch {0} finished! Training reward {1}'.format(epoch, train_reward.result()))
         with tfc.summary.always_record_summaries():
+            train_reward(rew_mean)
+            train_distance(distance)
             tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
             tfc.summary.scalar('metric/reward', train_reward.result(), step=epoch)
             tfc.summary.scalar('metric/distance', train_distance.result(), step=epoch)
+            print('Epoch {0} finished! Training reward {1}'.format(epoch, train_reward.result()))
             train_writer.flush()
 
         # save model
-        if epoch % 25 == 0:
+        if epoch % 100 == 0:
             ckpt.save(os.path.join(*model_nn))
 
 

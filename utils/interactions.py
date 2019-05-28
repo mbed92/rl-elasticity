@@ -13,7 +13,7 @@ def get_target_pose(sim, base_name, target_name):
     target_xyz = sim.data.get_body_xpos(target_name)
     target_quat = sim.data.get_body_xquat(target_name)
     if target_name == "gripperpalm":
-        target_xyz[-1] += 0.1
+        target_xyz[1] -= 0.06
 
     translation = target_xyz - base_xyz
     rotation_quat = quaternion_multiply(target_quat, quaternion_inverse(base_quat))
@@ -50,7 +50,7 @@ def close_hand(env):
 
 
 def randomize_target(env):
-    env.model.body_pos[2][1] = (2 * np.random.rand() - 1) / 10.0
+    env.model.body_pos[1][1] = (2 * np.random.rand() - 1) / 10.0
     env.forward()
     return env
 
@@ -60,8 +60,7 @@ def step(env, start_frame):
         for _ in range(start_frame):
             env.step()
     except mujoco_py.builder.MujocoException:
-        return False
-    return True
+        reset(env, 1000)
 
 
 def reset(env, start_frame):
@@ -74,12 +73,10 @@ def reset(env, start_frame):
     env.data.set_joint_qpos("wrist_3_joint", start_qpos["wrist_3_joint"])
 
     if start_frame > 0:
-        isOk = step(env, start_frame)
-        if not isOk:
-            step(env, start_frame)
+        step(env, start_frame)
 
 
-def get_camera_image(viewer, cam_id, width=640, height=480, normalize=True):
+def get_camera_image(viewer, cam_id, width=640, height=420, normalize=True):
     viewer.render(width, height, cam_id)
     rgb = np.asarray(viewer.read_pixels(width, height, depth=False)[::-1, :, :], dtype=np.float32)
     if normalize:

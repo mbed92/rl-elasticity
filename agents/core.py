@@ -9,13 +9,14 @@ class Core(tf.keras.Model):
         self.rgb_process = tf.keras.Sequential([
             tf.keras.layers.Conv2D(16, (3, 3), 2, 'same', activation=tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Conv2D(32, (3, 3), 2, 'same', activation=tf.nn.relu),
+            tf.keras.layers.Conv2D(32, (5, 5), 4, 'same', activation=tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Conv2D(128, (3, 3), 2, 'same', activation=tf.nn.relu),
+            tf.keras.layers.Conv2D(128, (5, 5), 4, 'same', activation=tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Conv2D(256, (3, 3), 2, 'same', activation=tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(128, tf.nn.relu),
             tf.keras.layers.Dense(32, None)
