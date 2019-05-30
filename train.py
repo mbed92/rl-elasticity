@@ -122,7 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=10)
     parser.add_argument('--sim-start', type=int, default=1000)
-    parser.add_argument('--restore-path', type=str)
+    parser.add_argument('--restore-path', type=str, default="")
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log')
     parser.add_argument('--keep-random', type=float, default=0.7)
