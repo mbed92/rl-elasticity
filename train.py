@@ -49,7 +49,7 @@ def train(args):
                 ep_mean_act, ep_log_dev = model([rgb, poses, joints], True)
                 ep_stddev = tf.exp(ep_log_dev)
                 actions = env.take_continuous_action(ep_mean_act, ep_stddev, keep_random)
-                env.step(args.sim_step)
+                env.step()
                 ep_rew, distance_object = env.get_reward()
                 ep_rew -= np.abs(0.01 * np.matmul(actions, np.transpose(actions)))
                 ep_rewards.append(ep_rew)

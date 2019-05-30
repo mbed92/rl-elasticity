@@ -35,36 +35,20 @@ class ManEnv(Env):
 
     # main methods
     def get_reward(self):
-        def _add_sparse(rew, d):
-            rew = (rew + 1) if d < 0.5 else rew
-            rew = (rew + 2) if d < 0.4 else rew
-            rew = (rew + 3) if d < 0.3 else rew
-            rew = (rew + 5) if d < 0.2 else rew
-            rew = (rew + 8) if d < 0.05 else rew
-            return rew
-
-        # get the poses of targets in the robot's base coordinate system
-        tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
+        # tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
         grip = self._get_target_pose(self.link_base_name, self.link_trgt_name)
-        # body = self.random_target
-        gamma_1, gamma_2, gamma_3 = 1.0, 0.03, 1.0
+        target = self.random_target
 
         # reward from decreasing the distance between a gripper and a grip point - reach reward
-        d = np.linalg.norm(grip[0] - tool[0])
+        d = np.linalg.norm(target[0] - grip[0])
         grip_tool_dist = d if d < 0.3 else np.square(d)
-        position_rew = -gamma_1 * grip_tool_dist
-
-        # # add a sparse rewards
-        # position_rew = _add_sparse(position_rew, d)
-        #
-        # d2 = np.linalg.norm(body - grip[0])
-        # target_tool_dist = d2 if d2 < 0.3 else np.square(d2)
-        # position_rew += -gamma_3 * target_tool_dist
-        # position_rew = _add_sparse(position_rew, d2)
+        position_rew = -grip_tool_dist
 
         return position_rew, d
 
-    def step(self, num_steps):
+    def step(self, num_steps=-1):
+        if num_steps < 1:
+            num_steps = self.sim_step
         try:
             for _ in range(num_steps):
                 self.env.step()
@@ -101,6 +85,7 @@ class ManEnv(Env):
 
     def randomize_environment(self):
         self._randomize_rope_position()
+        self._set_random_target()
 
     # specs
     @staticmethod
@@ -131,7 +116,7 @@ class ManEnv(Env):
 
         return translation, rotation_quat
 
-    def set_random_target(self):
+    def _set_random_target(self):
         self.random_target[0] = np.random.uniform(x_range[0], x_range[1])
         self.random_target[1] = np.random.uniform(y_range[0], y_range[1])
         self.random_target[2] = np.random.uniform(z_range[0], z_range[1])
