@@ -14,8 +14,8 @@ tf.executing_eagerly()
 
 
 def train(args):
-    env, viewer = setup_environment()
-    train_writer = setup_writer()
+    env, viewer = setup_environment(args.mujoco_model_path)
+    train_writer = setup_writer(args.logs_path)
     train_writer.set_as_default()
 
     # make core of policy network
@@ -40,7 +40,7 @@ def train(args):
         cnt = 0
         randomize_target(env)
         reset(env, args.sim_start)
-        keep_random = initial_keep_random + ((epoch / args.epochs) * (1 - initial_keep_random)) # TODO: to separate fcn
+        keep_random = update_keep_random(args.keep_random, epoch, args.epochs)
         while True:
             obs, pos = get_observations(env)    # TODO: obs and rgb move to one fcn
             rgb = get_camera_image(viewer, cam_id=0)
@@ -122,8 +122,11 @@ if __name__ == '__main__':
     parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=10)
     parser.add_argument('--sim-start', type=int, default=1000)
-    parser.add_argument('--restore-path', type=str, default='./saved')
+    parser.add_argument('--restore-path', type=str)
     parser.add_argument('--save-path', type=str, default='./saved')
+    parser.add_argument('--logs-path', type=str, default='./log')
+    parser.add_argument('--keep-random', type=float, default=0.7)
+    parser.add_argument('--mujoco-model-path', type=str, default='./models/ur5/UR5gripper.xml')
     args, _ = parser.parse_known_args()
 
     train(args)

@@ -33,22 +33,6 @@ def set_random_target():
     random_target[2] = np.random.uniform(z_range[0], z_range[1])
 
 
-def open_hand(env):
-    for i in range(6, len(env.data.ctrl)):
-        env.data.ctrl[i] = -0.1
-    step(env, 50)
-    for i in range(6, len(env.data.ctrl)):
-        env.data.ctrl[i] = 0
-
-
-def close_hand(env):
-    for i in range(6, len(env.data.ctrl)):
-        env.data.ctrl[i] = 0.4
-    step(env, 10)
-    for i in range(6, len(env.data.ctrl)):
-        env.data.ctrl[i] = 0.0
-
-
 def randomize_target(env):
     env.model.body_pos[1][1] = (2 * np.random.rand() - 1) / 10.0
     env.forward()

@@ -1,32 +1,6 @@
 from .interactions import *
 
 
-def discount_rewards(r, gamma=0.98):
-    discounted_r = np.zeros_like(r)
-    r = np.asarray(r)
-    for t in range(0, r.size):
-        discounted_r[t] = np.power(gamma, r.size - t - 1) + r[t] if r[t] > 0 else r[t]
-    return discounted_r
-
-
-def is_closed(sim):
-    g02 = sim.data.get_joint_qpos("gripperfinger_1_joint_1")
-    g03 = sim.data.get_joint_qpos("gripperfinger_1_joint_2")
-    g04 = sim.data.get_joint_qpos("gripperfinger_1_joint_3")
-    g06 = sim.data.get_joint_qpos("gripperfinger_2_joint_1")
-    g07 = sim.data.get_joint_qpos("gripperfinger_2_joint_2")
-    g08 = sim.data.get_joint_qpos("gripperfinger_2_joint_3")
-    g10 = sim.data.get_joint_qpos("gripperfinger_middle_joint_1")
-    g11 = sim.data.get_joint_qpos("gripperfinger_middle_joint_2")
-    g12 = sim.data.get_joint_qpos("gripperfinger_middle_joint_3")
-
-    if g02 > gripper_close["gripperfinger_1_joint_1"] and g06 > gripper_close["gripperfinger_2_joint_1"] and g10 > gripper_close["gripperfinger_middle_joint_1"] and \
-       g03 > gripper_close["gripperfinger_1_joint_2"] and g07 > gripper_close["gripperfinger_2_joint_2"] and g11 > gripper_close["gripperfinger_middle_joint_2"] and \
-       g04 > gripper_close["gripperfinger_1_joint_3"] and g08 > gripper_close["gripperfinger_2_joint_3"] and g12 > gripper_close["gripperfinger_middle_joint_3"]:
-        return True
-    return False
-
-
 def get_sparse_reward(sim):
     tool = get_target_pose(sim, 'base_link', 'gripperpalm')
     grip = get_target_pose(sim, 'base_link', 'CB13')
@@ -92,3 +66,11 @@ def standarize_rewards(rewards: list):
     ret = discount_rewards(ret)
 
     return np.sum(ret), np.mean(ret)
+
+
+def discount_rewards(r, gamma=0.98):
+    discounted_r = np.zeros_like(r)
+    r = np.asarray(r)
+    for t in range(0, r.size):
+        discounted_r[t] = np.power(gamma, r.size - t - 1) + r[t] if r[t] > 0 else r[t]
+    return discounted_r
