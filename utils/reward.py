@@ -5,7 +5,7 @@ def discount_rewards(r, gamma=0.98):
     discounted_r = np.zeros_like(r)
     r = np.asarray(r)
     for t in range(0, r.size):
-        discounted_r[t] = np.power(gamma, r.size - t - 1) + r[t]
+        discounted_r[t] = np.power(gamma, r.size - t - 1) + r[t] if r[t] > 0 else r[t]
     return discounted_r
 
 
@@ -38,12 +38,12 @@ def get_sparse_reward(sim):
 
     if d1 < 0.25:
         reward = 100.0
-        if d1 < 0.1:
+        if d1 < 0.08:
             reward = 200.0
-            if d2 < 0.15:
-                reward = 300.0
-                if d2 < 0.05:
-                    reward = 400.0
+            # if d2 < 0.15:
+            #     reward = 300.0
+            #     if d2 < 0.05:
+            #         reward = 400.0
 
     return reward, d1, d2
 

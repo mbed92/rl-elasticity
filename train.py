@@ -1,4 +1,5 @@
 import os
+from argparse import ArgumentParser
 
 import cv2
 import numpy as np
@@ -12,23 +13,20 @@ tf.enable_eager_execution()
 tf.executing_eagerly()
 
 
-def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1000, restore=False):
+def train(args):
     env, viewer = setup_environment()
     train_writer = setup_writer()
     train_writer.set_as_default()
-    train_reward = tfc.eager.metrics.Mean('reward')
-    train_distance_object = tfc.eager.metrics.Mean('distance')
-    train_distance_target = tfc.eager.metrics.Mean('distance')
 
     # make core of policy network
     num_inputs = env.data.ctrl.size
     model = Core(num_controls=num_inputs)
 
     # create optimizer for the apply_gradients() and load weights
-    optimizer, ckpt = setup_optimizer(restore, lr, model)
+    optimizer, ckpt = setup_optimizer(args.restore_path, args.learning_rate, model)
 
     # run training
-    for epoch in range(epochs):
+    for epoch in range(args.epochs):
         ep_rewards = []         # list for rewards accrued throughout ep
         ep_log_grad = []        # list of log-likelihood gradients
         batch_reward = []       # list of discounted and standarized sums rewards per epoch
@@ -41,10 +39,10 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
         # start trajectory
         cnt = 0
         randomize_target(env)
-        reset(env, start_frame)
-        keep_random = initial_keep_random + ((epoch / epochs) / (1 / initial_keep_random))
+        reset(env, args.sim_start)
+        keep_random = initial_keep_random + ((epoch / args.epochs) * (1 - initial_keep_random)) # TODO: to separate fcn
         while True:
-            obs, pos = get_observations(env)
+            obs, pos = get_observations(env)    # TODO: obs and rgb move to one fcn
             rgb = get_camera_image(viewer, cam_id=0)
             cv2.imshow("trajectory", rgb[0])
             cv2.waitKey(1)
@@ -54,7 +52,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
                 ep_mean_act, ep_log_dev = model([obs, rgb, pos], True)
                 ep_stddev = tf.exp(ep_log_dev)
 
-                # apply actions
+                # apply actions # TODO: move to one function taking_actions()
                 if np.random.uniform() < keep_random:
                     actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
                 else:
@@ -63,7 +61,7 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
                     env.data.ctrl[i] += actions.numpy()[0, i]
 
                 # act, compute reward and loss
-                step(env, step_size)
+                step(env, args.sim_step)
 
                 # ep_rew, distance = get_distance_reward(env, actions.numpy())
                 ep_rew, distance_object, distance_target = get_sparse_reward(env)
@@ -75,9 +73,10 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if distance_object > 0.8 or cnt > 400:
+            if distance_object > 0.8 or cnt > 150:
                 if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
-                    ep_reward_sum, ep_reward_mean = standarize_rewards(ep_rewards)
+                    ep_rewards = discount_rewards(ep_rewards)
+                    ep_reward_sum, ep_reward_mean = np.sum(ep_rewards), np.mean(ep_rewards)
                     batch_reward.append(ep_reward_sum)
                     batch_means.append(ep_reward_mean)
                     total_gradient = [tf.add(x, y) for x, y in zip(total_gradient, ep_log_grad)] if len(total_gradient) != 0 else ep_log_grad
@@ -86,10 +85,10 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad, weighted_grads = [], [], []
                 cnt = 0
-                if len(batch_reward) >= num_ep_per_batch:
+                if len(batch_reward) >= args.update_step:
                     break
                 else:
-                    reset(env, start_frame)
+                    reset(env, args.sim_start)
             cnt += 1
 
         # take a single policy gradient update step
@@ -104,20 +103,27 @@ def train(epochs=2000, num_ep_per_batch=1, lr=1e-04, step_size=10, start_frame=1
 
         # update summary
         with tfc.summary.always_record_summaries():
-            train_reward(rew_mean)
-            train_distance_object(distance_object)
-            train_distance_target(distance_target)
             tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
-            tfc.summary.scalar('metric/reward', train_reward.result(), step=epoch)
-            tfc.summary.scalar('metric/distance_object', train_distance_object.result(), step=epoch)
-            tfc.summary.scalar('metric/distance_target', train_distance_target.result(), step=epoch)
-            print('Epoch {0} finished! Training reward {1}'.format(epoch, train_reward.result()))
+            tfc.summary.scalar('metric/reward', rew_mean, step=epoch)
+            tfc.summary.scalar('metric/distance_object', distance_object, step=epoch)
+            tfc.summary.scalar('metric/distance_target', distance_target, step=epoch)
+            print('Epoch {0} finished! Training reward {1}'.format(epoch, rew_mean))
             train_writer.flush()
 
         # save model
         if epoch % 100 == 0:
-            ckpt.save(os.path.join(*model_nn))
+            ckpt.save(args.save_path)
 
 
 if __name__ == '__main__':
-    train()
+    parser = ArgumentParser()
+    parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--learning-rate', type=float, default=1e-4)
+    parser.add_argument('--update-step', type=int, default=1)
+    parser.add_argument('--sim-step', type=int, default=10)
+    parser.add_argument('--sim-start', type=int, default=1000)
+    parser.add_argument('--restore-path', type=str, default='./saved')
+    parser.add_argument('--save-path', type=str, default='./saved')
+    args, _ = parser.parse_known_args()
+
+    train(args)

@@ -120,7 +120,7 @@ Control Engineering / Automation Engineering
             <!--<freejoint />-->
             <composite prefix="C" type="rope" count="15 1 1" spacing="0.025">
                 <joint kind="stretch" damping="10000" stiffness="1.0"/>
-                <joint kind="twist" damping="10000" stiffness="100"/>
+                <joint kind="twist" damping="10000" stiffness="0.1"/>
                 <geom type="capsule" size=".012 .003" mass="0.1" rgba=".8 .2 .1 1" condim="4"/>
             </composite>
         </body>
