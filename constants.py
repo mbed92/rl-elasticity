@@ -1,22 +1,25 @@
 very_close_position = {
-    "shoulder_pan_joint": 0.0,
-    "shoulder_lift_joint": -0.5,
-    "elbow_joint": 1.0,
-    "wrist_1_joint": 0.0,
-    "wrist_2_joint": 0.0,
-    "wrist_3_joint": 0.0
+    "shoulder_pan_joint": -0.346,
+    "shoulder_lift_joint": -1.32,
+    "elbow_joint": 2.29,
+    "wrist_1_joint": -0.943,
+    "wrist_2_joint": 1.13,
+    "wrist_3_joint": 0.0,
+    "gripperpalm_finger_1_joint": 0.0,
+    "gripperfinger_1_joint_1": 0.0,
+    "gripperfinger_1_joint_2": 1.12,
+    "gripperfinger_1_joint_3": 0,
+    "gripperpalm_finger_2_joint": -0.0445,
+    "gripperfinger_2_joint_1": 0.196,
+    "gripperfinger_2_joint_2": 1.15,
+    "gripperfinger_2_joint_3": 0.602,
+    "gripperpalm_finger_middle_joint": 0.0,
+    "gripperfinger_middle_joint_1": 1.08,
+    "gripperfinger_middle_joint_2": 0.346,
+    "gripperfinger_middle_joint_3": 0.38,
 }
 
-base_position = {
-    "shoulder_pan_joint": 0.0,
-    "shoulder_lift_joint": -1.7,
-    "elbow_joint": 1.0,
-    "wrist_1_joint": 0.0,
-    "wrist_2_joint": 0.0,
-    "wrist_3_joint": 0.0
-}
-
-start_qpos = base_position
+start_qpos = very_close_position
 
 
 gripper_close = {

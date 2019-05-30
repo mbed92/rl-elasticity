@@ -51,7 +51,7 @@ def train(args):
                 actions = env.take_continuous_action(ep_mean_act, ep_stddev, keep_random)
                 env.step()
                 ep_rew, distance_object = env.get_reward()
-                ep_rew -= np.abs(0.01 * np.matmul(actions, np.transpose(actions)))
+                ep_rew -= np.abs(0.005 * np.matmul(actions, np.transpose(actions)))
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -62,8 +62,8 @@ def train(args):
             # compute grad log-likelihood for a current episode
             if distance_object > args.sim_max_dist or cnt > args.sim_max_length:
                 if len(ep_rewards) > 5:
-                    ep_rewards = bound_to_nonzero(ep_rewards)
                     ep_rewards = standardize_rewards(ep_rewards)
+                    ep_rewards = bound_to_nonzero(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = np.sum(ep_rewards), np.mean(ep_rewards)
                     batch_reward.append(ep_reward_sum)
@@ -109,13 +109,13 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=10)
-    parser.add_argument('--sim-start', type=int, default=1400)
+    parser.add_argument('--sim-start', type=int, default=1)
     parser.add_argument('--sim-cam-id', type=int, default=0)
     parser.add_argument('--sim-cam-img-w', type=int, default=640)
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=200)
-    parser.add_argument('--sim-max-dist', type=float, default=0.8)
-    parser.add_argument('--restore-path', type=str, default='./saved')
+    parser.add_argument('--sim-max-dist', type=float, default=0.15)
+    parser.add_argument('--restore-path', type=str, default='')
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log')
     parser.add_argument('--keep-random', type=float, default=0.7)

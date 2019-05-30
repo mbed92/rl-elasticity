@@ -35,16 +35,16 @@ class ManEnv(Env):
 
     # main methods
     def get_reward(self):
-        # tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
+        tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
         grip = self._get_target_pose(self.link_base_name, self.link_trgt_name)
         target = self.random_target
 
-        # reward from decreasing the distance between a gripper and a grip point - reach reward
-        d = np.linalg.norm(target[0] - grip[0])
+        d = np.linalg.norm(target - grip[0])
         grip_tool_dist = d if d < 0.3 else np.square(d)
         position_rew = -grip_tool_dist
 
-        return position_rew, d
+        d2 = np.linalg.norm(tool[0] - grip[0])
+        return position_rew, d2
 
     def step(self, num_steps=-1):
         if num_steps < 1:
@@ -57,12 +57,9 @@ class ManEnv(Env):
 
     def reset(self):
         self.env.reset()
-        self.env.data.set_joint_qpos("shoulder_pan_joint", start_qpos["shoulder_pan_joint"])
-        self.env.data.set_joint_qpos("shoulder_lift_joint", start_qpos["shoulder_lift_joint"])
-        self.env.data.set_joint_qpos("elbow_joint", start_qpos["elbow_joint"])
-        self.env.data.set_joint_qpos("wrist_1_joint", start_qpos["wrist_1_joint"])
-        self.env.data.set_joint_qpos("wrist_2_joint", start_qpos["wrist_2_joint"])
-        self.env.data.set_joint_qpos("wrist_3_joint", start_qpos["wrist_3_joint"])
+
+        for key, value in start_qpos.items():
+            self.env.data.set_joint_qpos(key, value)
 
         if self.sim_start > 0:
             self.step(self.sim_start)
@@ -99,7 +96,7 @@ class ManEnv(Env):
             "img_height": args.sim_cam_img_h,
             "base": "base_link",
             "tool": "gripperpalm",
-            "target": "CB13"
+            "target": "CB8"
         }
 
     def _get_target_pose(self, base_name, target_name, offset=None):
