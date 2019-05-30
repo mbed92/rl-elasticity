@@ -51,6 +51,7 @@ def train(args):
                 actions = env.take_continuous_action(ep_mean_act, ep_stddev, keep_random)
                 env.step(args.sim_step)
                 ep_rew, distance_object = env.get_reward()
+                ep_rew -= np.abs(0.01 * np.matmul(actions, np.transpose(actions)))
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -61,8 +62,8 @@ def train(args):
             # compute grad log-likelihood for a current episode
             if distance_object > args.sim_max_dist or cnt > args.sim_max_length:
                 if len(ep_rewards) > 5:
-                    ep_rewards = standarize_rewards(ep_rewards)
                     ep_rewards = bound_to_nonzero(ep_rewards)
+                    ep_rewards = standarize_rewards(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = np.sum(ep_rewards), np.mean(ep_rewards)
                     batch_reward.append(ep_reward_sum)
@@ -71,8 +72,8 @@ def train(args):
                     print("Episode is done! Sum reward: {0}, mean reward: {1}, keep random ratio: {2}".format(ep_reward_sum, ep_reward_mean, keep_random))
 
                 # reset episode-specific variables
-                ep_rewards, ep_log_grad, weighted_grads = [], [], []
                 cnt = 0
+                ep_rewards, ep_log_grad, weighted_grads = [], [], []
                 if len(batch_reward) >= args.update_step:
                     break
                 else:
