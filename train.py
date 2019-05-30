@@ -115,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=200)
     parser.add_argument('--sim-max-dist', type=float, default=0.8)
-    parser.add_argument('--restore-path', type=str, default="")
+    parser.add_argument('--restore-path', type=str, default='./saved')
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log')
     parser.add_argument('--keep-random', type=float, default=0.7)
