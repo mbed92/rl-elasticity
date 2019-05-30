@@ -30,8 +30,3 @@ gripper_close = {
     "gripperfinger_middle_joint_2": 0.7,
     "gripperfinger_middle_joint_3": 0.2
 }
-
-initial_keep_random = 0.75
-x_range = (0.4, 0.6)
-y_range = (-0.5, 0.0)
-z_range = (0.5, 0.8)

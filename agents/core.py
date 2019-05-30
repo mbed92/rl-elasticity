@@ -1,3 +1,5 @@
+from os.path import join
+
 import tensorflow as tf
 
 
@@ -56,13 +58,13 @@ class Core(tf.keras.Model):
         self.hidden_state = None
 
     def call(self, inputs, training=None, mask=None):
-        obs = inputs[0]
-        rgb = inputs[1]
-        pos = inputs[2]
+        rgb = inputs[0]
+        poses = inputs[1]
+        joints = inputs[2]
 
-        state_logits = self.joint_process(obs, training=training)
         rgb_logits = self.rgb_process(rgb, training=training)
-        pos_logits = self.pose_process(pos, training=training)
+        pos_logits = self.pose_process(poses, training=training)
+        state_logits = self.joint_process(joints, training=training)
         state = tf.concat([state_logits, rgb_logits, pos_logits], axis=0)
         integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
 

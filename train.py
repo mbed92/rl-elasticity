@@ -1,12 +1,13 @@
-import os
 from argparse import ArgumentParser
 
+import os
 import cv2
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib as tfc
 
 from agents import Core
+from environment import ManEnv
 from utils import *
 
 tf.enable_eager_execution()
@@ -14,15 +15,13 @@ tf.executing_eagerly()
 
 
 def train(args):
-    env, viewer = setup_environment(args.mujoco_model_path)
+    env_spec = ManEnv.get_std_spec(args)
+    env = ManEnv(**env_spec)
     train_writer = setup_writer(args.logs_path)
     train_writer.set_as_default()
 
-    # make core of policy network
-    num_inputs = env.data.ctrl.size
-    model = Core(num_controls=num_inputs)
-
-    # create optimizer for the apply_gradients() and load weights
+    # make the policy network
+    model = Core(num_controls=env.num_actions)
     optimizer, ckpt = setup_optimizer(args.restore_path, args.learning_rate, model)
 
     # run training
@@ -32,39 +31,26 @@ def train(args):
         batch_reward = []       # list of discounted and standarized sums rewards per epoch
         batch_means = []        # list of discounted and standarized means rewards per epoch
         total_gradient = []     # list of gradients multiplied by rewards per epochs
+        keep_random = update_keep_random(args.keep_random, epoch, args.epochs)
 
-        # randomize final point in every epoch
-        set_random_target()
+        # domain randomization after each epoch
+        env.randomize_environment()
+        env.reset()
 
         # start trajectory
         cnt = 0
-        randomize_target(env)
-        reset(env, args.sim_start)
-        keep_random = update_keep_random(args.keep_random, epoch, args.epochs)
         while True:
-            obs, pos = get_observations(env)    # TODO: obs and rgb move to one fcn
-            rgb = get_camera_image(viewer, cam_id=0)
+            rgb, poses, joints = env.get_observations()
             cv2.imshow("trajectory", rgb[0])
             cv2.waitKey(1)
 
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as tape:
-                ep_mean_act, ep_log_dev = model([obs, rgb, pos], True)
+                ep_mean_act, ep_log_dev = model([rgb, poses, joints], True)
                 ep_stddev = tf.exp(ep_log_dev)
-
-                # apply actions # TODO: move to one function taking_actions()
-                if np.random.uniform() < keep_random:
-                    actions = tf.random_normal(tf.shape(ep_mean_act), mean=ep_mean_act, stddev=ep_stddev)
-                else:
-                    actions = tf.random_uniform(tf.shape(ep_mean_act), ep_mean_act - 3 * ep_stddev, ep_mean_act + 3 * ep_stddev)
-                for i in range(num_inputs):
-                    env.data.ctrl[i] += actions.numpy()[0, i]
-
-                # act, compute reward and loss
-                step(env, args.sim_step)
-
-                # ep_rew, distance = get_distance_reward(env, actions.numpy())
-                ep_rew, distance_object, distance_target = get_sparse_reward(env)
+                actions = env.take_continuous_action(ep_mean_act, ep_stddev, keep_random)
+                env.step(args.sim_step)
+                ep_rew, distance_object = env.get_reward()
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -73,8 +59,10 @@ def train(args):
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if distance_object > 0.8 or cnt > 150:
-                if len(ep_rewards) > 5:  # do not accept one-element lists of rewards or trash moves
+            if distance_object > args.sim_max_dist or cnt > args.sim_max_length:
+                if len(ep_rewards) > 5:
+                    ep_rewards = standarize_rewards(ep_rewards)
+                    ep_rewards = bound_to_nonzero(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = np.sum(ep_rewards), np.mean(ep_rewards)
                     batch_reward.append(ep_reward_sum)
@@ -88,7 +76,7 @@ def train(args):
                 if len(batch_reward) >= args.update_step:
                     break
                 else:
-                    reset(env, args.sim_start)
+                    env.reset()
             cnt += 1
 
         # take a single policy gradient update step
@@ -103,25 +91,29 @@ def train(args):
 
         # update summary
         with tfc.summary.always_record_summaries():
-            tfc.summary.image('scene/camera_img', rgb, max_images=1, step=epoch)
+            print('Epoch {0} finished! Training reward {1}'.format(epoch, rew_mean))
             tfc.summary.scalar('metric/reward', rew_mean, step=epoch)
             tfc.summary.scalar('metric/distance_object', distance_object, step=epoch)
-            tfc.summary.scalar('metric/distance_target', distance_target, step=epoch)
-            print('Epoch {0} finished! Training reward {1}'.format(epoch, rew_mean))
             train_writer.flush()
 
         # save model
-        if epoch % 100 == 0:
-            ckpt.save(args.save_path)
+        if epoch % args.model_save_interval == 0:
+            ckpt.save(os.path.join(args.save_path, 'ckpt'))
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--model-save-interval', type=int, default=200)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=10)
-    parser.add_argument('--sim-start', type=int, default=1000)
+    parser.add_argument('--sim-start', type=int, default=1400)
+    parser.add_argument('--sim-cam-id', type=int, default=0)
+    parser.add_argument('--sim-cam-img-w', type=int, default=640)
+    parser.add_argument('--sim-cam-img-h', type=int, default=480)
+    parser.add_argument('--sim-max-length', type=int, default=200)
+    parser.add_argument('--sim-max-dist', type=float, default=0.8)
     parser.add_argument('--restore-path', type=str, default="")
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log')
@@ -129,4 +121,5 @@ if __name__ == '__main__':
     parser.add_argument('--mujoco-model-path', type=str, default='./models/ur5/UR5gripper.xml')
     args, _ = parser.parse_known_args()
 
+    os.makedirs(args.save_path, exist_ok=True)
     train(args)
