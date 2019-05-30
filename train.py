@@ -28,8 +28,8 @@ def train(args):
     for epoch in range(args.epochs):
         ep_rewards = []         # list for rewards accrued throughout ep
         ep_log_grad = []        # list of log-likelihood gradients
-        batch_reward = []       # list of discounted and standarized sums rewards per epoch
-        batch_means = []        # list of discounted and standarized means rewards per epoch
+        batch_reward = []       # list of discounted and standardized sums rewards per epoch
+        batch_means = []        # list of discounted and standardized means rewards per epoch
         total_gradient = []     # list of gradients multiplied by rewards per epochs
         keep_random = update_keep_random(args.keep_random, epoch, args.epochs)
 
@@ -63,7 +63,7 @@ def train(args):
             if distance_object > args.sim_max_dist or cnt > args.sim_max_length:
                 if len(ep_rewards) > 5:
                     ep_rewards = bound_to_nonzero(ep_rewards)
-                    ep_rewards = standarize_rewards(ep_rewards)
+                    ep_rewards = standardize_rewards(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = np.sum(ep_rewards), np.mean(ep_rewards)
                     batch_reward.append(ep_reward_sum)

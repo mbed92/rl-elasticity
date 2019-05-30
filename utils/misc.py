@@ -28,7 +28,7 @@ def update_keep_random(initial_keep_random, epoch, epochs):
     return initial_keep_random + ((epoch / epochs) * (1 - initial_keep_random))
 
 
-def standarize_rewards(rewards):
+def standardize_rewards(rewards):
     rewards = np.asarray(rewards)
     m, s = np.mean(rewards), np.sqrt(np.var(rewards))
     return (rewards - m) / (s + 1e-06)
