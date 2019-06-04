@@ -27,7 +27,7 @@ def test(args):
         env.take_continuous_action(ep_mean_act, ep_stddev, 1.0)
         env.step()
 
-        if i % 1000 == 0:
+        if i % 100 == 0:
             env.randomize_environment()
             env.reset()
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=10)
-    parser.add_argument('--sim-start', type=int, default=1400)
+    parser.add_argument('--sim-start', type=int, default=1)
     parser.add_argument('--sim-cam-id', type=int, default=0)
     parser.add_argument('--sim-cam-img-w', type=int, default=640)
     parser.add_argument('--sim-cam-img-h', type=int, default=480)

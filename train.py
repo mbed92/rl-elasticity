@@ -51,7 +51,7 @@ def train(args):
                 actions = env.take_continuous_action(ep_mean_act, ep_stddev, keep_random)
                 env.step()
                 ep_rew, distance_object = env.get_reward()
-                ep_rew -= np.abs(0.005 * np.matmul(actions, np.transpose(actions)))
+                ep_rew -= np.abs(0.008 * np.matmul(actions, np.transpose(actions)))
                 ep_rewards.append(ep_rew)
                 loss_value = tf.losses.mean_squared_error(ep_mean_act, actions)
 
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=200)
     parser.add_argument('--sim-max-dist', type=float, default=0.15)
-    parser.add_argument('--restore-path', type=str, default='')
+    parser.add_argument('--restore-path', type=str, default='./saved')
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log')
     parser.add_argument('--keep-random', type=float, default=0.7)
