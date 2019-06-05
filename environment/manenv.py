@@ -34,17 +34,16 @@ class ManEnv(Env):
         self.viewer = mujoco_py.MjRenderContextOffscreen(self.env, self.cam_id)
 
     # main methods
-    def get_reward(self):
+    def get_reward(self, actions):
         tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
-        grip = self._get_target_pose(self.link_base_name, self.link_trgt_name)
         target = self.random_target
 
-        d = np.linalg.norm(target - grip[0])
-        grip_tool_dist = d if d < 0.3 else np.square(d)
-        position_rew = -grip_tool_dist
+        d2 = np.linalg.norm(target - tool[0])
+        huber = d2 if d2 < 0.2 else np.square(d2)
 
-        d2 = np.linalg.norm(tool[0] - grip[0])
-        return position_rew, d2
+        huber -= np.abs(0.005 * np.abs(np.matmul(actions, np.transpose(actions))))
+
+        return huber, d2
 
     def step(self, num_steps=-1):
         if num_steps < 1:
@@ -77,11 +76,17 @@ class ManEnv(Env):
             actions = tf.random_uniform(tf.shape(means), means - 3 * std_devs, means + 3 * std_devs)
         for i in range(self.num_actions):
             self.env.data.ctrl[i] += actions.numpy()[0, i]
-
         return actions
 
+    def take_discrete_action(self, actions):
+        for i in range(self.num_actions):
+            if actions[i] == 1:
+                self.env.data.ctrl[i] = 0.25
+            else:
+                self.env.data.ctrl[i] = 0.0
+
     def randomize_environment(self):
-        self._randomize_rope_position()
+        # self._randomize_rope_position()
         self._set_random_target()
 
     # specs
@@ -130,9 +135,15 @@ class ManEnv(Env):
 
     def _get_poses(self):
         poses = list()
-        poses.append(self._get_target_pose(self.link_base_name, self.link_tool_name)[0])
-        poses.append(self._get_target_pose(self.link_base_name, self.link_trgt_name)[0])
-        poses.append(self.random_target)
+
+        p1 = self._get_target_pose(self.link_base_name, self.link_tool_name)[0]
+        # p2 = self._get_target_pose(self.link_base_name, self.link_trgt_name)[0]
+        # p2 = np.zeros_like(p1)
+        p3 = self.random_target
+
+        poses.append(p1)
+        # poses.append(p2)
+        poses.append(p3)
         poses = np.asarray(poses)
         self.poses = np.float32(poses[np.newaxis, :])
 

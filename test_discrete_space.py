@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 import cv2
 import tensorflow as tf
 
-from agents import Core
+from agents import ContinuousAgent
 from environment import ManEnv
 
 tf.enable_eager_execution()
@@ -13,7 +13,7 @@ tf.executing_eagerly()
 def test(args):
     env_spec = ManEnv.get_std_spec(args)
     env = ManEnv(**env_spec)
-    model = Core(num_controls=env.num_actions)
+    model = ContinuousAgent(num_controls=env.num_actions)
 
     # randomize_target(env)
     env.reset()

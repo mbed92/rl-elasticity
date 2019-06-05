@@ -1,1 +1,1 @@
-from .core import Core
+from .base import ContinuousAgent

@@ -3,7 +3,7 @@ class Env(object):
         self.sim_start = sim_start
         self.sim_step = sim_step
 
-    def get_reward(self):
+    def get_reward(self, *args):
         raise NotImplementedError("Not implemented")
 
     def step(self, num_steps):

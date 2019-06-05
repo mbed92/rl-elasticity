@@ -25,7 +25,8 @@ def setup_optimizer(restore_path, lr, model):
 
 
 def update_keep_random(initial_keep_random, epoch, epochs):
-    return initial_keep_random + ((epoch / epochs) * (1 - initial_keep_random))
+    val = initial_keep_random + ((epoch / epochs) * (1 - initial_keep_random))
+    return val if 0.0 < val < 1.0 else 1.0
 
 
 def standardize_rewards(rewards):

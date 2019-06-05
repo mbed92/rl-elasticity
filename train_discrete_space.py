@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib as tfc
 
-from agents import Core
+from agents import ContinuousAgent
 from environment import ManEnv
 from utils import *
 
@@ -21,7 +21,7 @@ def train(args):
     train_writer.set_as_default()
 
     # make the policy network
-    model = Core(num_controls=env.num_actions)
+    model = ContinuousAgent(num_controls=env.num_actions)
     optimizer, ckpt = setup_optimizer(args.restore_path, args.learning_rate, model)
 
     # run training
@@ -46,10 +46,11 @@ def train(args):
 
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as tape:
-                ep_mean_act, ep_log_dev = model([rgb, poses, joints], True)
-                ep_stddev = tf.exp(ep_log_dev)
-                actions = env.take_continuous_action(ep_mean_act, ep_stddev, keep_random)
+                logits = model([rgb, poses, joints], True)
+                actions = tf.squeeze(tf.multinomial(logits=logits, num_samples=1), axis=1)
+                actions = env.take_discrete_action(actions)
                 env.step()
+
                 ep_rew, distance_object = env.get_reward()
                 ep_rew -= np.abs(0.008 * np.matmul(actions, np.transpose(actions)))
                 ep_rewards.append(ep_rew)

@@ -1,4 +1,7 @@
-very_close_position = {
+import numpy as np
+
+
+home = {
     "shoulder_pan_joint": -0.346,
     "shoulder_lift_joint": -1.32,
     "elbow_joint": 2.29,
@@ -19,7 +22,28 @@ very_close_position = {
     "gripperfinger_middle_joint_3": 0.38,
 }
 
-start_qpos = very_close_position
+random_reach = {
+    "shoulder_pan_joint": -0.35 + np.random.uniform(-0.3, 0.3),
+    "shoulder_lift_joint": -1.7 + np.random.uniform(-0.3, 0.3),
+    "elbow_joint": 1.7 + np.random.uniform(-0.3, 0.3),
+    "wrist_1_joint": 0.0 + np.random.uniform(-1, 1),
+    "wrist_2_joint": 0.0 + np.random.uniform(-1, 1),
+    "wrist_3_joint": 0.0 + np.random.uniform(-1, 1),
+    "gripperpalm_finger_1_joint": 0.0,
+    "gripperfinger_1_joint_1": 0.0,
+    "gripperfinger_1_joint_2": 0.0,
+    "gripperfinger_1_joint_3": 0.0,
+    "gripperpalm_finger_2_joint": 0.0,
+    "gripperfinger_2_joint_1": 0.0,
+    "gripperfinger_2_joint_2": 0.0,
+    "gripperfinger_2_joint_3": 0.0,
+    "gripperpalm_finger_middle_joint": 0.0,
+    "gripperfinger_middle_joint_1": 0.0,
+    "gripperfinger_middle_joint_2": 0.0,
+    "gripperfinger_middle_joint_3": 0.0,
+}
+
+start_qpos = home
 
 
 gripper_close = {
