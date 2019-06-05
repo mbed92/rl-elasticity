@@ -27,11 +27,10 @@ def test(args):
         ep_rew, distance = env.get_reward(actions)
         env.step()
 
-        if i % 100 == 0:
+        if i % 100 == 0 or distance < 0.05:
             env.randomize_environment()
             print(distance)
             env.reset()
-
 
 
 if __name__ == '__main__':

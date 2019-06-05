@@ -39,9 +39,10 @@ class ManEnv(Env):
         target = self.random_target
 
         d2 = np.linalg.norm(target - tool[0])
-        huber = d2 if d2 < 0.2 else np.square(d2)
+        huber = -d2 if d2 < 0.2 else -np.square(d2)
 
-        huber -= np.abs(0.005 * np.abs(np.matmul(actions, np.transpose(actions))))
+        u = np.abs(0.008 * np.abs(np.matmul(actions, np.transpose(actions))))
+        huber -= u
 
         return huber, d2
 

@@ -25,6 +25,7 @@ def train(args):
     # make the policy network
     model = ContinuousAgent(num_controls=env.num_actions)
     optimizer, ckpt = setup_optimizer(args.restore_path, args.learning_rate, model)
+    l2_reg = tf.keras.regularizers.l2(1e-4)
 
     # run training
     for n in range(args.epochs):
@@ -53,9 +54,11 @@ def train(args):
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
                 loss_value = -tf.losses.mean_squared_error(ep_mean_act, actions)
+                reg_value = tfc.layers.apply_regularization(l2_reg, model.trainable_variables)
+                loss = loss_value + reg_value
 
             # compute and store gradients
-            grads = tape.gradient(loss_value, model.trainable_variables)
+            grads = tape.gradient(loss, model.trainable_variables)
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
@@ -76,14 +79,17 @@ def train(args):
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad = [], []
 
-                if t >= args.update_step:
+                if trajs >= args.update_step:
+                    print("Apply gradients!")
                     break
                 else:
+                    t = 0
                     env.reset()
+                    continue
             t += 1
 
         # get gradients and apply them to model's variables - gradient is computed as a mean from episodes
-        total_gradient = [tf.div(grad, trajs) for grad in total_gradient]
+        total_gradient = [tf.div(grad, trajs) for grad in total_gradient] if trajs > 1 else total_gradient
         optimizer.apply_gradients(zip(total_gradient, model.trainable_variables),
                                   global_step=tf.train.get_or_create_global_step())
 
@@ -103,8 +109,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--model-save-interval', type=int, default=200)
-    parser.add_argument('--learning-rate', type=float, default=1e-3)
-    parser.add_argument('--update-step', type=int, default=100)
+    parser.add_argument('--learning-rate', type=float, default=1e-4)
+    parser.add_argument('--update-step', type=int, default=2)
     parser.add_argument('--sim-step', type=int, default=10)
     parser.add_argument('--sim-start', type=int, default=1)
     parser.add_argument('--sim-cam-id', type=int, default=0)
@@ -112,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=150)
     parser.add_argument('--sim-max-dist', type=float, default=0.9)
-    parser.add_argument('--restore-path', type=str, default='./saved')
+    parser.add_argument('--restore-path', type=str, default='')
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log')
     parser.add_argument('--keep-random', type=float, default=0.7)
