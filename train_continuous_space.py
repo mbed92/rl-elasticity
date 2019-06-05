@@ -53,7 +53,8 @@ def train(args):
                 env.step()
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
-                loss_value = -tf.losses.mean_squared_error(ep_mean_act, actions)
+                loss_value = tf.log(1e-06 + (1 / (ep_log_dev + 1e-06))) - \
+                             (1 / (tf.exp(ep_log_dev) + 1e-06)) * tf.losses.mean_squared_error(ep_mean_act, actions)
                 reg_value = tfc.layers.apply_regularization(l2_reg, model.trainable_variables)
                 loss = loss_value + reg_value
 
@@ -62,7 +63,7 @@ def train(args):
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
 
             # compute grad log-likelihood for a current episode
-            if distance > args.sim_max_dist or distance < 0.05 or t > args.sim_max_length:
+            if distance > args.sim_max_dist or distance < 0.05 or t > args.sim_max_length or ep_rew > 50:
                 if len(ep_rewards) > 5:
                     ep_rewards = standardize_rewards(ep_rewards)
                     ep_rewards = bound_to_nonzero(ep_rewards)
@@ -95,7 +96,7 @@ def train(args):
 
         # update summary
         with tfc.summary.always_record_summaries():
-            print('Epoch {0} finished!')
+            print('Epoch {0} finished!'.format(n))
             tfc.summary.scalar('metric/distance', distance, step=n)
             tfc.summary.scalar('metric/mean_reward', np.mean(batch_rewards), step=n)
             train_writer.flush()
@@ -108,7 +109,7 @@ def train(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
-    parser.add_argument('--model-save-interval', type=int, default=200)
+    parser.add_argument('--model-save-interval', type=int, default=50)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('--update-step', type=int, default=2)
     parser.add_argument('--sim-step', type=int, default=10)
@@ -120,8 +121,8 @@ if __name__ == '__main__':
     parser.add_argument('--sim-max-dist', type=float, default=0.9)
     parser.add_argument('--restore-path', type=str, default='')
     parser.add_argument('--save-path', type=str, default='./saved')
-    parser.add_argument('--logs-path', type=str, default='./log')
-    parser.add_argument('--keep-random', type=float, default=0.7)
+    parser.add_argument('--logs-path', type=str, default='./log/1')
+    parser.add_argument('--keep-random', type=float, default=0.7287997)
     parser.add_argument('--mujoco-model-path', type=str, default='./models/ur5/UR5gripper.xml')
     args, _ = parser.parse_known_args()
 
