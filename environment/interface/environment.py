@@ -12,6 +12,9 @@ class Env(object):
     def reset(self):
         raise NotImplementedError("Not implemented")
 
+    def is_done(self, *args):
+        raise NotImplementedError("Not implemented")
+
     def get_observations(self):
         raise NotImplementedError("Not implemented")
 

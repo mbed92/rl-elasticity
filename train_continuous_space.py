@@ -92,6 +92,7 @@ def train(args):
 
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad = [], []
+                env.randomize_environment()
                 env.reset()
                 t = 0
 
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     parser.add_argument('--sim-cam-img-w', type=int, default=640)
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=150)
-    parser.add_argument('--sim-max-dist', type=float, default=0.9)
+    parser.add_argument('--sim-max-dist', type=float, default=1.5)
     parser.add_argument('--restore-path', type=str, default='')
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log/1')
