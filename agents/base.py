@@ -58,12 +58,10 @@ class ContinuousAgent(tf.keras.Model):
     def call(self, inputs, training=None, mask=None):
         rgb = inputs[0]
         poses = inputs[1]
-        # joints = inputs[2]
 
         rgb_logits = self.rgb_process(rgb, training=training)
         pos_logits = self.pose_process(poses, training=training)
-        # state_logits = self.joint_process(joints, training=training)
-        # state = tf.concat([state_logits, rgb_logits, pos_logits], axis=0)
+
         state = tf.concat([rgb_logits, pos_logits], axis=0)
         integrator_feed = tf.reduce_sum(state, axis=0, keepdims=True)
 

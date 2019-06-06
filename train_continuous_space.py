@@ -29,10 +29,10 @@ def train(args):
 
     # run training
     for n in range(args.epochs):
-        ep_rewards = []         # list for rewards accrued throughout ep
         batch_rewards = []
-        ep_log_grad = []        # list of log-likelihood gradients
-        total_gradient = []     # list of gradients multiplied by rewards per epochs
+        ep_rewards = []       # list for rewards accrued throughout ep
+        ep_log_grad = []      # list of log-likelihood gradients
+        total_gradient = []   # list of gradients multiplied by rewards per epochs
         keep_random = update_keep_random(args.keep_random, n, args.epochs)
 
         # domain randomization after each epoch
@@ -49,12 +49,20 @@ def train(args):
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as tape:
                 ep_mean_act, ep_log_dev = model([rgb, poses], True)
-                actions = env.take_continuous_action(ep_mean_act, tf.exp(ep_log_dev), keep_random)
+                ep_std_dev, ep_variance = tf.exp(ep_log_dev), tf.square(tf.exp(ep_log_dev))
+                actions = env.take_continuous_action(ep_mean_act, ep_std_dev, keep_random)
+
                 env.step()
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
-                loss_value = tf.log(1e-06 + (1 / (ep_log_dev + 1e-06))) - \
-                             (1 / (tf.exp(ep_log_dev) + 1e-06)) * tf.losses.mean_squared_error(ep_mean_act, actions)
+
+                # optimize a mean and a std_dev
+                loss_value = tf.log(1 / ep_std_dev) - (1 / ep_variance) * tf.losses.mean_squared_error(ep_mean_act, actions)
+                loss_value = tf.reduce_mean(loss_value)
+
+                # optimize only a mean
+                # loss_value = -1.0 * tf.losses.mean_squared_error(ep_mean_act, actions)
+
                 reg_value = tfc.layers.apply_regularization(l2_reg, model.trainable_variables)
                 loss = loss_value + reg_value
 
@@ -110,7 +118,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--model-save-interval', type=int, default=50)
-    parser.add_argument('--learning-rate', type=float, default=1e-4)
+    parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--update-step', type=int, default=2)
     parser.add_argument('--sim-step', type=int, default=10)
     parser.add_argument('--sim-start', type=int, default=1)
@@ -122,7 +130,7 @@ if __name__ == '__main__':
     parser.add_argument('--restore-path', type=str, default='')
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log/1')
-    parser.add_argument('--keep-random', type=float, default=0.7287997)
+    parser.add_argument('--keep-random', type=float, default=0.8548)
     parser.add_argument('--mujoco-model-path', type=str, default='./models/ur5/UR5gripper.xml')
     args, _ = parser.parse_known_args()
 

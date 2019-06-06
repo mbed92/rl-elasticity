@@ -30,7 +30,7 @@ def update_keep_random(initial_keep_random, epoch, epochs):
 
 
 def standardize_rewards(rewards):
-    rewards = np.asarray(rewards)
+    rewards = np.asanyarray(rewards)
     m, s = np.mean(rewards), np.sqrt(np.var(rewards))
     return (rewards - m) / (s + 1e-06)
 
@@ -43,7 +43,7 @@ def bound_to_nonzero(rewards):
 
 def discount_rewards(r, gamma=0.98):
     discounted_r = np.zeros_like(r)
-    r = np.asarray(r)
+    r = np.asanyarray(r)
     for t in range(0, r.size):
         discounted_r[t] = np.power(gamma, r.size - t - 1) + r[t] if r[t] > 0 else r[t]
     return discounted_r
