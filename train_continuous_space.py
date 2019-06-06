@@ -69,6 +69,7 @@ def train(args):
             # compute and store gradients
             grads = tape.gradient(loss, model.trainable_variables)
             ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
+            t += 1
 
             # compute grad log-likelihood for a current episode
             if distance > args.sim_max_dist or distance < 0.05 or t > args.sim_max_length or ep_rew > 50:
@@ -76,7 +77,7 @@ def train(args):
                     ep_rewards = standardize_rewards(ep_rewards)
                     ep_rewards = bound_to_nonzero(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
-                    ep_reward_sum, ep_reward_mean = np.sum(ep_rewards), np.mean(ep_rewards)
+                    ep_reward_sum, ep_reward_mean = sum(ep_rewards), mean(ep_rewards)
                     batch_rewards.append(ep_reward_mean)
 
                     # compute gradient and multiply it times "reward to go" minus baseline
@@ -85,17 +86,14 @@ def train(args):
                     print("Episode is done! Sum reward: {0}, mean reward: {1}, keep random ratio: {2}".format(ep_reward_sum, ep_reward_mean, keep_random))
                     trajs += 1
 
+                    if trajs >= args.update_step:
+                        print("Apply gradients!")
+                        break
+
                 # reset episode-specific variables
                 ep_rewards, ep_log_grad = [], []
-
-                if trajs >= args.update_step:
-                    print("Apply gradients!")
-                    break
-                else:
-                    t = 0
-                    env.reset()
-                    continue
-            t += 1
+                env.reset()
+                t = 0
 
         # get gradients and apply them to model's variables - gradient is computed as a mean from episodes
         total_gradient = [tf.div(grad, trajs) for grad in total_gradient] if trajs > 1 else total_gradient

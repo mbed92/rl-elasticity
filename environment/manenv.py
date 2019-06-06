@@ -8,8 +8,8 @@ import tensorflow as tf
 
 
 x_range = (0.4, 0.6)
-y_range = (-0.5, 0.0)
-z_range = (0.5, 0.8)
+y_range = (-0.5, -0.5)
+z_range = (0.5, 0.9)
 EPS = 1e-8
 
 
@@ -41,7 +41,7 @@ class ManEnv(Env):
         d2 = np.linalg.norm(target - tool[0])
         huber = -d2 if d2 < 0.2 else -np.square(d2)
 
-        u = np.abs(0.01 * np.abs(np.matmul(actions, np.transpose(actions))))
+        u = np.squeeze(np.abs(0.015 * np.abs(np.matmul(actions, np.transpose(actions)))))
         huber -= u
 
         # big bonus for achieving target
