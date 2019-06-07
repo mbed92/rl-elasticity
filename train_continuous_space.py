@@ -91,7 +91,8 @@ def train(args):
                         break
 
                 # reset episode-specific variables
-                ep_rewards, ep_log_grad = [], []
+                ep_rewards.clear()
+                ep_log_grad.clear()
                 env.randomize_environment()
                 env.reset()
                 t = 0

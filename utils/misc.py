@@ -47,5 +47,5 @@ def bound_to_nonzero(rewards: list):
 def discount_rewards(r: list, gamma=0.98):
     discounted_r = [0] * len(r)
     for t in range(len(r)):
-        discounted_r[t] = gamma**(len(r) - t - 1) + r[t] if r[t] > 0 else r[t]
+        discounted_r[t] = gamma**(len(r) - t - 1) * r[t] if r[t] > 0 else r[t]
     return discounted_r
