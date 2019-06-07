@@ -9,8 +9,8 @@ def setup_writer(log_path):
     return tfc.summary.create_file_writer(log_path)
 
 
-def setup_optimizer(restore_path, lr, model):
-    optimizer = tf.train.AdamOptimizer(learning_rate=lr)
+def setup_optimizer(restore_path, eta, model):
+    optimizer = tf.train.AdamOptimizer(learning_rate=eta)
     ckpt = tf.train.Checkpoint(optimizer=optimizer,
                                model=model,
                                optimizer_step=tf.train.get_or_create_global_step())

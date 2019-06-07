@@ -24,7 +24,16 @@ def train(args):
 
     # make the policy network
     model = ContinuousAgent(num_controls=env.num_actions)
-    optimizer, ckpt = setup_optimizer(args.restore_path, args.learning_rate, model)
+
+    # setup optimizer
+    eta = tfc.eager.Variable(5e-4)
+    eta_f = tf.train.exponential_decay(
+        args.learning_rate,
+        tf.train.get_or_create_global_step(),
+        args.epochs,
+        0.99)
+    eta.assign(eta_f())
+    optimizer, ckpt = setup_optimizer(args.restore_path, eta, model)
     l2_reg = tf.keras.regularizers.l2(1e-4)
 
     # run training
@@ -105,6 +114,9 @@ def train(args):
         optimizer.apply_gradients(zip(total_gradient, model.trainable_variables),
                                   global_step=tf.train.get_or_create_global_step())
 
+        # update parameters
+        eta.assign(eta_f())
+
         # update summary
         with tfc.summary.always_record_summaries():
             print('Epoch {0} finished!'.format(n))
@@ -121,7 +133,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--model-save-interval', type=int, default=50)
-    parser.add_argument('--learning-rate', type=float, default=1e-3)
+    parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('--update-step', type=int, default=2)
     parser.add_argument('--sim-step', type=int, default=10)
     parser.add_argument('--sim-start', type=int, default=1)
