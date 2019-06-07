@@ -43,8 +43,11 @@ def train(args):
         t, trajs = 0, 0
         while True:
             rgb, poses, _ = env.get_observations()
-            cv2.imshow("trajectory", rgb[0])
-            cv2.waitKey(1)
+            if rgb[0] is not None and poses is not None:
+                cv2.imshow("trajectory", rgb[0])
+                cv2.waitKey(1)
+            else:
+                continue
 
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as tape:
@@ -83,7 +86,7 @@ def train(args):
                     # compute gradient and multiply it times "reward to go" minus baseline
                     total_gradient = [tf.add(log, prev_log) for log, prev_log in zip(total_gradient, ep_log_grad)] if len(total_gradient) != 0 else ep_log_grad
                     total_gradient = [tf.multiply(log, ep_reward_sum - ep_reward_mean) for log in total_gradient]
-                    print("Episode is done! Sum reward: {0}, mean reward: {1}, keep random ratio: {2}".format(ep_reward_sum, ep_reward_mean, keep_random))
+                    print("Episode is done! Mean reward: {0}, keep random ratio: {1}".format(ep_reward_mean, keep_random))
                     trajs += 1
 
                     if trajs >= args.update_step:
@@ -98,7 +101,7 @@ def train(args):
                 t = 0
 
         # get gradients and apply them to model's variables - gradient is computed as a mean from episodes
-        total_gradient = [tf.div(grad, trajs) for grad in total_gradient] if trajs > 1 else total_gradient
+        total_gradient = [tf.divide(grad, trajs) for grad in total_gradient] if trajs > 0 else total_gradient
         optimizer.apply_gradients(zip(total_gradient, model.trainable_variables),
                                   global_step=tf.train.get_or_create_global_step())
 
