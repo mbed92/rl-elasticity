@@ -63,7 +63,6 @@ def train(args):
                 ep_mean_act, ep_log_dev = model([rgb, poses], True)
                 ep_std_dev, ep_variance = tf.exp(ep_log_dev), tf.square(tf.exp(ep_log_dev))
                 actions = env.take_continuous_action(ep_mean_act, ep_std_dev, keep_random)
-
                 env.step()
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
@@ -122,6 +121,7 @@ def train(args):
             print('Epoch {0} finished!'.format(n))
             tfc.summary.scalar('metric/distance', distance, step=n)
             tfc.summary.scalar('metric/mean_reward', np.mean(batch_rewards), step=n)
+            tfc.summary.scalar('metric/learning_rate', eta.value(), step=n)
             train_writer.flush()
 
         # save model
@@ -142,9 +142,9 @@ if __name__ == '__main__':
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=150)
     parser.add_argument('--sim-max-dist', type=float, default=1.5)
-    parser.add_argument('--restore-path', type=str, default='')
+    parser.add_argument('--restore-path', type=str, default='./saved')
     parser.add_argument('--save-path', type=str, default='./saved')
-    parser.add_argument('--logs-path', type=str, default='./log/1')
+    parser.add_argument('--logs-path', type=str, default='./log/2')
     parser.add_argument('--keep-random', type=float, default=0.8548)
     parser.add_argument('--mujoco-model-path', type=str, default='./models/ur5/UR5gripper.xml')
     args, _ = parser.parse_known_args()

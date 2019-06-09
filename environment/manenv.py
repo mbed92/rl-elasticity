@@ -41,11 +41,11 @@ class ManEnv(Env):
         d2 = np.linalg.norm(target - tool[0])
         huber = -d2 if d2 < 0.2 else -np.square(d2)
 
-        u = np.squeeze(np.abs(0.015 * np.abs(np.matmul(actions, np.transpose(actions)))))
+        u = np.squeeze(np.abs(0.002 * np.abs(np.matmul(actions, np.transpose(actions)))))
         huber -= u
 
         # big bonus for achieving target
-        if d2 < 0.05:
+        if d2 < 0.08:
             huber += 100.0
 
         return huber, d2
@@ -80,7 +80,7 @@ class ManEnv(Env):
         else:
             actions = tf.random_uniform(tf.shape(means), means - 3 * std_devs, means + 3 * std_devs)
         for i in range(self.num_actions):
-            self.env.data.ctrl[i] = actions.numpy()[0, i]
+            self.env.data.ctrl[i] += actions.numpy()[0, i]
         return actions
 
     def take_discrete_action(self, actions):
