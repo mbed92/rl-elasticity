@@ -72,29 +72,42 @@ def train(args):
                 loss_value = tf.reduce_mean(loss_value)
 
                 # optimize only a mean
-                # loss_value = -1.0 * tf.losses.mean_squared_error(ep_mean_act, actions)
+                # loss_value = -tf.losses.mean_squared_error(ep_mean_act, actions)
 
                 reg_value = tfc.layers.apply_regularization(l2_reg, model.trainable_variables)
                 loss = loss_value + reg_value
 
             # compute and store gradients
             grads = tape.gradient(loss, model.trainable_variables)
-            ep_log_grad = [tf.add(x, y) for x, y in zip(ep_log_grad, grads)] if len(ep_log_grad) != 0 else grads
+            ep_log_grad.append(grads)
             t += 1
 
             # compute grad log-likelihood for a current episode
             if distance > args.sim_max_dist or distance < 0.05 or t > args.sim_max_length or ep_rew > 50:
-                if len(ep_rewards) > 5:
+                if len(ep_rewards) > 5 and len(ep_rewards) == len(ep_log_grad):
                     ep_rewards = standardize_rewards(ep_rewards)
                     ep_rewards = bound_to_nonzero(ep_rewards)
+                    ep_rewards = reward_to_go(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
-                    ep_reward_sum, ep_reward_mean = sum(ep_rewards), mean(ep_rewards)
-                    batch_rewards.append(ep_reward_mean)
+                    ep_reward_sum, baseline = sum(ep_rewards), mean(ep_rewards)
+                    batch_rewards.append(baseline)
 
-                    # compute gradient and multiply it times "reward to go" minus baseline
-                    total_gradient = [tf.add(log, prev_log) for log, prev_log in zip(total_gradient, ep_log_grad)] if len(total_gradient) != 0 else ep_log_grad
-                    total_gradient = [tf.multiply(log, ep_reward_sum - ep_reward_mean) for log in total_gradient]
-                    print("Episode is done! Mean reward: {0}, keep random ratio: {1}".format(ep_reward_mean, keep_random))
+                    # gradient[i] * (reward - b)
+                    for i, (grad, reward) in enumerate(zip(ep_log_grad, ep_rewards)):
+                        ep_log_grad[i] = [tf.multiply(g, (reward - baseline)) for g in grad]
+
+                    # sum over one trajectory
+                    trajectory_gradient = []
+                    for i, grad in enumerate(ep_log_grad):
+                        if i > 0:
+                            trajectory_gradient = [a + b for a, b in zip(trajectory_gradient, grad)]
+                        else:
+                            trajectory_gradient = grad
+
+                    # sum over all trajectories
+                    total_gradient = [tf.add(prob, prev_prob) for prob, prev_prob in zip(total_gradient, trajectory_gradient)] if len(total_gradient) > 0 else trajectory_gradient
+
+                    print("Episode is done! Mean reward: {0}, keep random ratio: {1}".format(baseline, keep_random))
                     trajs += 1
 
                     if trajs >= args.update_step:
@@ -133,19 +146,19 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--model-save-interval', type=int, default=50)
-    parser.add_argument('--learning-rate', type=float, default=1e-4)
-    parser.add_argument('--update-step', type=int, default=2)
-    parser.add_argument('--sim-step', type=int, default=10)
+    parser.add_argument('--learning-rate', type=float, default=5e-4)
+    parser.add_argument('--update-step', type=int, default=1)
+    parser.add_argument('--sim-step', type=int, default=5)
     parser.add_argument('--sim-start', type=int, default=1)
     parser.add_argument('--sim-cam-id', type=int, default=0)
     parser.add_argument('--sim-cam-img-w', type=int, default=640)
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
-    parser.add_argument('--sim-max-length', type=int, default=150)
+    parser.add_argument('--sim-max-length', type=int, default=100)
     parser.add_argument('--sim-max-dist', type=float, default=1.5)
-    parser.add_argument('--restore-path', type=str, default='./saved')
+    parser.add_argument('--restore-path', type=str, default='')
     parser.add_argument('--save-path', type=str, default='./saved')
-    parser.add_argument('--logs-path', type=str, default='./log/2')
-    parser.add_argument('--keep-random', type=float, default=0.8548)
+    parser.add_argument('--logs-path', type=str, default='./log/1')
+    parser.add_argument('--keep-random', type=float, default=0.8)
     parser.add_argument('--mujoco-model-path', type=str, default='./models/ur5/UR5gripper.xml')
     args, _ = parser.parse_known_args()
 

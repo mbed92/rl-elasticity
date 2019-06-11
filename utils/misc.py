@@ -44,8 +44,16 @@ def bound_to_nonzero(rewards: list):
     return rewards
 
 
-def discount_rewards(r: list, gamma=0.98):
-    discounted_r = [0] * len(r)
-    for t in range(len(r)):
-        discounted_r[t] = gamma**(len(r) - t - 1) * r[t] if r[t] > 0 else r[t]
+def discount_rewards(rewards: list, gamma=0.98):
+    discounted_r = [0] * len(rewards)
+    for t in range(len(rewards)):
+        discounted_r[t] = gamma ** (len(rewards) - t - 1) * rewards[t] if rewards[t] > 0 else rewards[t]
     return discounted_r
+
+
+def reward_to_go(rewards: list):
+    n = len(rewards)
+    rtgs = [0] * len(rewards)
+    for i in reversed(range(n)):
+        rtgs[i] = rewards[i] + (rtgs[i + 1] if i + 1 < n else 0)
+    return rtgs
