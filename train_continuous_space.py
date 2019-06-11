@@ -1,10 +1,6 @@
 from argparse import ArgumentParser
 
-import os
 import cv2
-import numpy as np
-import tensorflow as tf
-import tensorflow.contrib as tfc
 
 from agents import ContinuousAgent
 from environment import ManEnv
@@ -15,8 +11,6 @@ tf.executing_eagerly()
 
 
 def train(args):
-    global total_gradient
-
     env_spec = ManEnv.get_std_spec(args)
     env = ManEnv(**env_spec)
     train_writer = setup_writer(args.logs_path)
@@ -26,15 +20,15 @@ def train(args):
     model = ContinuousAgent(num_controls=env.num_actions)
 
     # setup optimizer
-    eta = tfc.eager.Variable(5e-4)
+    eta = tfc.eager.Variable(args.learning_rate)
     eta_f = tf.train.exponential_decay(
         args.learning_rate,
         tf.train.get_or_create_global_step(),
         args.epochs,
-        0.99)
+        0.98)
     eta.assign(eta_f())
     optimizer, ckpt = setup_optimizer(args.restore_path, eta, model)
-    l2_reg = tf.keras.regularizers.l2(1e-4)
+    l2_reg = tf.keras.regularizers.l2(1e-6)
 
     # run training
     for n in range(args.epochs):
@@ -61,15 +55,15 @@ def train(args):
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as tape:
                 ep_mean_act, ep_log_dev = model([rgb, poses], True)
-                ep_std_dev, ep_variance = tf.exp(ep_log_dev), tf.square(tf.exp(ep_log_dev))
+                ep_std_dev, ep_variance = tf.exp(ep_log_dev) + 1e-05, tf.square(tf.exp(ep_log_dev)) + 1e-05
                 actions = env.take_continuous_action(ep_mean_act, ep_std_dev, keep_random)
                 env.step()
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
 
                 # optimize a mean and a std_dev
-                loss_value = tf.log(1 / ep_std_dev) - (1 / ep_variance) * tf.losses.mean_squared_error(ep_mean_act, actions)
-                loss_value = tf.reduce_mean(loss_value)
+                loss_value = tf.log((1 / ep_std_dev) + 1e-05) - (1 / ep_variance) * tf.losses.mean_squared_error(ep_mean_act, actions)
+                loss_value = -tf.reduce_mean(loss_value)
 
                 # optimize only a mean
                 # loss_value = -tf.losses.mean_squared_error(ep_mean_act, actions)
@@ -83,7 +77,7 @@ def train(args):
             t += 1
 
             # compute grad log-likelihood for a current episode
-            if distance > args.sim_max_dist or distance < 0.05 or t > args.sim_max_length or ep_rew > 50:
+            if is_done(distance, ep_rew, t, args):
                 if len(ep_rewards) > 5 and len(ep_rewards) == len(ep_log_grad):
                     ep_rewards = standardize_rewards(ep_rewards)
                     ep_rewards = bound_to_nonzero(ep_rewards)
@@ -99,24 +93,18 @@ def train(args):
                     # sum over one trajectory
                     trajectory_gradient = []
                     for i, grad in enumerate(ep_log_grad):
-                        if i > 0:
-                            trajectory_gradient = [a + b for a, b in zip(trajectory_gradient, grad)]
-                        else:
-                            trajectory_gradient = grad
+                        trajectory_gradient = [tf.add(a, b) for a, b in zip(trajectory_gradient, grad)] if i > 0 else grad
 
                     # sum over all trajectories
                     total_gradient = [tf.add(prob, prev_prob) for prob, prev_prob in zip(total_gradient, trajectory_gradient)] if len(total_gradient) > 0 else trajectory_gradient
-
                     print("Episode is done! Mean reward: {0}, keep random ratio: {1}".format(baseline, keep_random))
                     trajs += 1
-
                     if trajs >= args.update_step:
                         print("Apply gradients!")
                         break
 
                 # reset episode-specific variables
-                ep_rewards.clear()
-                ep_log_grad.clear()
+                ep_rewards, ep_log_grad = [], []
                 env.randomize_environment()
                 env.reset()
                 t = 0
@@ -146,7 +134,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--model-save-interval', type=int, default=50)
-    parser.add_argument('--learning-rate', type=float, default=5e-4)
+    parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=5)
     parser.add_argument('--sim-start', type=int, default=1)
@@ -155,6 +143,7 @@ if __name__ == '__main__':
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=100)
     parser.add_argument('--sim-max-dist', type=float, default=1.5)
+    parser.add_argument('--sim-min-dist', type=float, default=0.01)
     parser.add_argument('--restore-path', type=str, default='')
     parser.add_argument('--save-path', type=str, default='./saved')
     parser.add_argument('--logs-path', type=str, default='./log/1')

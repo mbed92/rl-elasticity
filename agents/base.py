@@ -72,10 +72,10 @@ class ContinuousAgent(tf.keras.Model):
                                                        dtype=integrator_feed.dtype) if self.hidden_state is None else self.hidden_state
         logits, self.hidden_state = self.RNN(integrator_feed, states=self.hidden_state, training=training)
 
-        # estimate mean actions
+        # estimate mean actions (-inf, inf)
         mean_actions = self.action_estimator(logits, training=training)
 
-        # estimate log of std deviations
+        # estimate log of std deviations (-inf, inf)
         log_std_devs = self.log_std_devs_estimator(logits, training=training)
 
         return mean_actions, log_std_devs

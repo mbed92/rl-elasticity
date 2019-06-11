@@ -57,3 +57,12 @@ def reward_to_go(rewards: list):
     for i in reversed(range(n)):
         rtgs[i] = rewards[i] + (rtgs[i + 1] if i + 1 < n else 0)
     return rtgs
+
+
+def is_done(current_distance, current_reward, t, args):
+    if args.sim_max_dist < current_distance or current_distance < args.sim_min_dist or \
+            current_reward > 50 or \
+            t > args.sim_max_length:
+        return True
+    return False
+

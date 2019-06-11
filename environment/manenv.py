@@ -36,7 +36,8 @@ class ManEnv(Env):
     # main methods
     def get_reward(self, actions):
         tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
-        target = self.random_target
+        base_xyz = self.env.data.get_body_xpos(self.link_base_name)
+        target = self.random_target - base_xyz
 
         d2 = np.linalg.norm(target - tool[0])
         huber = -d2 if d2 < 0.2 else -np.square(d2)
@@ -45,7 +46,7 @@ class ManEnv(Env):
         huber -= u
 
         # big bonus for achieving target
-        if d2 < 0.08:
+        if d2 < 0.03:
             huber += 100.0
 
         return huber, d2
@@ -75,6 +76,8 @@ class ManEnv(Env):
         return self.images, self.poses, self.joints
 
     def take_continuous_action(self, means, std_devs, keep_prob):
+        std_devs = np.abs(std_devs)
+
         if np.random.uniform() < keep_prob:
             actions = tf.random_normal(tf.shape(means), mean=means, stddev=std_devs)
         else:
@@ -109,14 +112,11 @@ class ManEnv(Env):
             "target": "CB8"
         }
 
-    def _get_target_pose(self, base_name, target_name, offset=None):
+    def _get_target_pose(self, base_name, target_name):
         base_xyz = self.env.data.get_body_xpos(base_name)
         base_quat = self.env.data.get_body_xquat(base_name)
         target_xyz = self.env.data.get_body_xpos(target_name)
         target_quat = self.env.data.get_body_xquat(target_name)
-        if offset is np.array and offset.size == target_xyz.size:
-            for i in range(offset.size):
-                target_xyz[i] += offset[i]
 
         translation = target_xyz - base_xyz
         rotation_quat = quaternion_multiply(target_quat, quaternion_inverse(base_quat))
