@@ -9,6 +9,9 @@ from utils import *
 tf.enable_eager_execution()
 tf.executing_eagerly()
 
+# remove tensorflow warning "tried to deallocate nullptr"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 
 def train(args):
     env_spec = ManEnv.get_std_spec(args)
@@ -47,8 +50,9 @@ def train(args):
         while True:
             rgb, poses, _ = env.get_observations()
             if rgb[0] is not None and poses is not None:
-                cv2.imshow("trajectory", rgb[0])
-                cv2.waitKey(1)
+                pass
+                # cv2.imshow("trajectory", rgb[0])
+                # cv2.waitKey(1)
             else:
                 continue
 
@@ -63,7 +67,7 @@ def train(args):
 
                 # optimize a mean and a std_dev
                 loss_value = tf.log((1 / ep_std_dev) + 1e-05) - (1 / ep_variance) * tf.losses.mean_squared_error(ep_mean_act, actions)
-                loss_value = -tf.reduce_mean(loss_value)
+                loss_value = tf.reduce_mean(loss_value)
 
                 # optimize only a mean
                 # loss_value = -tf.losses.mean_squared_error(ep_mean_act, actions)
@@ -97,7 +101,7 @@ def train(args):
 
                     # sum over all trajectories
                     total_gradient = [tf.add(prob, prev_prob) for prob, prev_prob in zip(total_gradient, trajectory_gradient)] if len(total_gradient) > 0 else trajectory_gradient
-                    print("Episode is done! Mean reward: {0}, keep random ratio: {1}".format(baseline, keep_random))
+                    print("Episode is done! Mean reward: {0}, keep random ratio: {1}, distance: {2}".format(baseline, keep_random, distance))
                     trajs += 1
                     if trajs >= args.update_step:
                         print("Apply gradients!")
@@ -134,7 +138,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--model-save-interval', type=int, default=50)
-    parser.add_argument('--learning-rate', type=float, default=1e-3)
+    parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=5)
     parser.add_argument('--sim-start', type=int, default=1)

@@ -10,13 +10,13 @@ class ContinuousAgent(tf.keras.Model):
             tf.keras.layers.Conv2D(16, (3, 3), 2, 'same', activation=None),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(32, (5, 5), 4, 'same', activation=None),
+            tf.keras.layers.Conv2D(32, (3, 3), 4, 'same', activation=None),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
             tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=None),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(128, (5, 5), 4, 'same', activation=None),
+            tf.keras.layers.Conv2D(128, (3, 3), 4, 'same', activation=None),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
             tf.keras.layers.Conv2D(256, (3, 3), 2, 'same', activation=None),
@@ -37,12 +37,16 @@ class ContinuousAgent(tf.keras.Model):
             tf.keras.layers.Dense(128, None)
         ])
 
-        self.RNN = tf.keras.layers.LSTMCell(32)
+        # cells = [tf.keras.layers.LSTMCell(128)]
+        # self.RNN = tf.keras.layers.RNN(cells)
+        self.RNN = tf.keras.layers.LSTMCell(128)
 
         self.action_estimator = tf.keras.Sequential([
             tf.keras.layers.Dense(128, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(32, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(num_controls, None)
         ])
@@ -51,6 +55,8 @@ class ContinuousAgent(tf.keras.Model):
             tf.keras.layers.Dense(128, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(32, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(num_controls, None)
         ])
@@ -65,12 +71,13 @@ class ContinuousAgent(tf.keras.Model):
         pos_logits = self.pose_process(poses, training=training)
 
         state = tf.concat([rgb_logits, pos_logits], axis=0)
-        integrator_feed = tf.reduce_sum(state, axis=0, keepdims=True)
+        integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
 
         # add a flavour of a history
         self.hidden_state = self.RNN.get_initial_state(batch_size=tf.shape(integrator_feed)[0],
                                                        dtype=integrator_feed.dtype) if self.hidden_state is None else self.hidden_state
         logits, self.hidden_state = self.RNN(integrator_feed, states=self.hidden_state, training=training)
+        # logits = self.RNN(integrator_feed)
 
         # estimate mean actions (-inf, inf)
         mean_actions = self.action_estimator(logits, training=training)
