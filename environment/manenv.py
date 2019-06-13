@@ -36,8 +36,7 @@ class ManEnv(Env):
     # main methods
     def get_reward(self, actions):
         tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
-        base_xyz = self.env.data.get_body_xpos(self.link_base_name)
-        target = self.random_target - base_xyz
+        target = self._get_point_in_base(self.random_target)
 
         d2 = np.linalg.norm(target - tool[0])
         huber = -d2 if d2 < 0.2 else -np.square(d2)
@@ -138,14 +137,15 @@ class ManEnv(Env):
         rgb = rgb / np.max(rgb) if np.max(rgb) > 0 else rgb / 255.
         self.images = np.float32(rgb[np.newaxis, :, :, :])
 
+    def _get_point_in_base(self, point):
+        base_xyz = self.env.data.get_body_xpos(self.link_base_name)
+        return point - base_xyz
+
     def _get_poses(self):
         poses = list()
 
         p1 = self._get_target_pose(self.link_base_name, self.link_tool_name)[0]
-        # p2 = self._get_target_pose(self.link_base_name, self.link_trgt_name)[0]
-        # p2 = np.zeros_like(p1)
-        base_xyz = self.env.data.get_body_xpos(self.link_base_name)
-        p3 = self.random_target - base_xyz
+        p3 = self._get_point_in_base(self.random_target)
 
         poses.append(p1)
         # poses.append(p2)
