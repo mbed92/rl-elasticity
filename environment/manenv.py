@@ -10,11 +10,11 @@ import tensorflow as tf
 x_range = (0.4, 0.6)
 y_range = (-0.5, 0.5)
 z_range = (0.4, 0.9)
-EPS = 1e-8
 
 
 class ManEnv(Env):
-    def __init__(self, sim_start, sim_step, env_path, cam_id, img_width, img_height, base, tool, target):
+
+    def __init__(self, sim_start, sim_step, env_path, cam_id, img_width, img_height, base, tool):
         super().__init__(sim_start, sim_step)
         self.poses = []
         self.joints = []
@@ -22,10 +22,10 @@ class ManEnv(Env):
         self.cam_id = cam_id
         self.img_width = img_width
         self.img_height = img_height
-        self.random_target = np.array([sum(x_range) / 2, sum(y_range) / 2, sum(z_range) / 2])
+        self.random_target = np.array([0.0, 0.0, 0.0])
+        self._set_random_target()
         self.link_base_name = base
         self.link_tool_name = tool
-        self.link_trgt_name = target
 
         # setup environment and viewer
         scene = mujoco_py.load_model_from_path(env_path)
@@ -36,8 +36,7 @@ class ManEnv(Env):
     # main methods
     def get_reward(self, actions):
         ax_tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
-        ax_target = self._get_point_in_base(self.random_target)
-        distance = np.linalg.norm(ax_target - ax_tool[0])
+        distance = np.linalg.norm(self.random_target - ax_tool[0])
 
         # compose a reward
         reward = -distance
@@ -60,7 +59,6 @@ class ManEnv(Env):
 
     def reset(self):
         self.env.reset()
-
         for key, value in start_qpos.items():
             self.env.data.set_joint_qpos(key, value)
 
@@ -70,22 +68,19 @@ class ManEnv(Env):
     def get_observations(self):
         self._get_camera_image()
         self._get_poses()
-        self._get_joints()
-        return self.images, self.poses, self.joints
+        return self.images, self.poses
 
     def take_continuous_action(self, means, std_devs, keep_prob):
         std_devs = np.abs(std_devs)
-
         if np.random.uniform() < keep_prob:
             actions = tf.random_normal(tf.shape(means), mean=means, stddev=std_devs)
         else:
             actions = tf.random_uniform(tf.shape(means), -2.0, 2.0)
         for i in range(self.num_actions):
-            self.env.data.ctrl[i] = actions.numpy()[0, i]
+            self.env.data.ctrl[i] += actions.numpy()[0, i]
         return actions
 
     def randomize_environment(self):
-        # self._randomize_rope_position()
         self._set_random_target()
 
     # specs
@@ -99,10 +94,10 @@ class ManEnv(Env):
             "img_width": args.sim_cam_img_w,
             "img_height": args.sim_cam_img_h,
             "base": "base_link",
-            "tool": "gripperpalm",
-            "target": "CB8"
+            "tool": "gripperpalm"
         }
 
+    # private methods
     def _get_target_pose(self, base_name, target_name):
         base_xyz = self.env.data.get_body_xpos(base_name)
         base_quat = self.env.data.get_body_xquat(base_name)
@@ -135,13 +130,10 @@ class ManEnv(Env):
 
     def _get_poses(self):
         poses = list()
-
         p1 = self._get_target_pose(self.link_base_name, self.link_tool_name)[0]
-        p3 = self._get_point_in_base(self.random_target)
-
+        p2 = self.random_target
         poses.append(p1)
-        # poses.append(p2)
-        poses.append(p3)
+        poses.append(p2)
         poses = np.asarray(poses)
         self.poses = np.float32(poses[np.newaxis, :])
 

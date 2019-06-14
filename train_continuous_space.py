@@ -49,7 +49,7 @@ def train(args):
         # start trajectory
         t, trajs = 0, 0
         while True:
-            rgb, poses, _ = env.get_observations()
+            rgb, poses = env.get_observations()
             if rgb[0] is not None and poses is not None:
                 pass
                 # cv2.imshow("trajectory", rgb[0])
@@ -69,9 +69,6 @@ def train(args):
                 # optimize a mean and a std_dev - compute gradient from logprob
                 loss_value = tf.log((1 / ep_std_dev) + 1e-05) - (1 / ep_variance) * tf.losses.mean_squared_error(ep_mean_act, actions)
                 loss_value = tf.reduce_mean(loss_value)
-
-                # optimize only a mean
-                # loss_value = -tf.losses.mean_squared_error(ep_mean_act, actions)
 
                 # do not let to optimize when loss -> NaN
                 if tf.is_nan(loss_value):
@@ -96,7 +93,6 @@ def train(args):
                     ep_rewards = discount_rewards(ep_rewards)
                     ep_rewards = standardize_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = sum(ep_rewards), mean(ep_rewards)
-
                     batch_rewards.append(ep_reward_mean)
                     batch_sums.append(ep_reward_mean)
 
