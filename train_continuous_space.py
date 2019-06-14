@@ -88,18 +88,18 @@ def train(args):
             # compute grad log-likelihood for a current episode
             if is_done(distance, ep_rew, t, args):
                 if len(ep_rewards) > 5 and len(ep_rewards) == len(ep_log_grad):
-                    ep_rewards = bound_to_nonzero(ep_rewards)
-                    # ep_rewards = reward_to_go(ep_rewards)
-                    ep_rewards = discount_rewards(ep_rewards)
                     ep_rewards = standardize_rewards(ep_rewards)
+                    ep_rewards = reward_to_go(ep_rewards)
+                    ep_rewards = bound_to_nonzero(ep_rewards)
+                    ep_rewards = discount_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = sum(ep_rewards), mean(ep_rewards)
                     batch_rewards.append(ep_reward_mean)
                     batch_sums.append(ep_reward_mean)
 
                     # gradient[i] * (reward - b)
                     for i, (grad, reward) in enumerate(zip(ep_log_grad, ep_rewards)):
-                        # ep_log_grad[i] = [tf.multiply(g, (reward - ep_reward_mean)) for g in grad]
-                        ep_log_grad[i] = [tf.multiply(g, reward) for g in grad]
+                        ep_log_grad[i] = [tf.multiply(g, (reward - ep_reward_mean)) for g in grad]
+                        # ep_log_grad[i] = [tf.multiply(g, reward) for g in grad]
 
                     # sum over one trajectory
                     trajectory_gradient = []
@@ -131,7 +131,8 @@ def train(args):
 
         # update summary
         with tfc.summary.always_record_summaries():
-            tfc.summary.histogram('histogram/total_gradient', total_gradient)
+            for layer, grad in enumerate(total_gradient):
+                tfc.summary.histogram('histogram/total_gradient_layer_{0}'.format(layer), grad)
             tfc.summary.scalar('metric/distance', distance, step=n)
             tfc.summary.scalar('metric/mean_reward', np.mean(batch_rewards), step=n)
             tfc.summary.scalar('metric/mean_sum', np.mean(batch_sums), step=n)
@@ -149,7 +150,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--model-save-interval', type=int, default=50)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
-    parser.add_argument('--update-step', type=int, default=1)
+    parser.add_argument('--update-step', type=int, default=2)
     parser.add_argument('--sim-step', type=int, default=5)
     parser.add_argument('--sim-start', type=int, default=1)
     parser.add_argument('--sim-cam-id', type=int, default=0)
