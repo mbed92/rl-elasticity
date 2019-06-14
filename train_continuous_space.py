@@ -36,6 +36,7 @@ def train(args):
     # run training
     for n in range(args.epochs):
         batch_rewards = []
+        batch_sums = []
         ep_rewards = []       # list for rewards accrued throughout ep
         ep_log_grad = []      # list of log-likelihood gradients
         total_gradient = []   # list of gradients multiplied by rewards per epochs
@@ -50,9 +51,8 @@ def train(args):
         while True:
             rgb, poses, _ = env.get_observations()
             if rgb[0] is not None and poses is not None:
-                pass
-                # cv2.imshow("trajectory", rgb[0])
-                # cv2.waitKey(1)
+                cv2.imshow("trajectory", rgb[0])
+                cv2.waitKey(1)
             else:
                 continue
 
@@ -72,27 +72,34 @@ def train(args):
                 # optimize only a mean
                 # loss_value = -tf.losses.mean_squared_error(ep_mean_act, actions)
 
+                # do not let to optimize when loss -> NaN
+                if tf.is_nan(loss_value):
+                    print("Loss is nan: ep_mean_act {0}, ep_log_dev: {1}".format(ep_mean_act, ep_log_dev))
+                    continue
+
                 reg_value = tfc.layers.apply_regularization(l2_reg, model.trainable_variables)
                 loss = loss_value + reg_value
 
             # compute and store gradients
             grads = tape.gradient(loss, model.trainable_variables)
+            # grads = [tf.clip_by_value(g, -1., 1.) for g in grads]
             ep_log_grad.append(grads)
             t += 1
 
             # compute grad log-likelihood for a current episode
             if is_done(distance, ep_rew, t, args):
                 if len(ep_rewards) > 5 and len(ep_rewards) == len(ep_log_grad):
-                    ep_rewards = standardize_rewards(ep_rewards)
                     ep_rewards = bound_to_nonzero(ep_rewards)
-                    ep_rewards = reward_to_go(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
+                    ep_rewards = reward_to_go(ep_rewards)
+                    ep_rewards = standardize_rewards(ep_rewards)
                     ep_reward_sum, baseline = sum(ep_rewards), mean(ep_rewards)
                     batch_rewards.append(baseline)
 
                     # gradient[i] * (reward - b)
                     for i, (grad, reward) in enumerate(zip(ep_log_grad, ep_rewards)):
                         ep_log_grad[i] = [tf.multiply(g, (reward - baseline)) for g in grad]
+                        # ep_log_grad[i] = [tf.multiply(g, reward) for g in grad]
 
                     # sum over one trajectory
                     trajectory_gradient = []
@@ -115,8 +122,9 @@ def train(args):
 
         # get gradients and apply them to model's variables - gradient is computed as a mean from episodes
         total_gradient = [tf.divide(grad, trajs) for grad in total_gradient] if trajs > 0 else total_gradient
-        optimizer.apply_gradients(zip(total_gradient, model.trainable_variables),
-                                  global_step=tf.train.get_or_create_global_step())
+        if total_gradient:
+            optimizer.apply_gradients(zip(total_gradient, model.trainable_variables),
+                                      global_step=tf.train.get_or_create_global_step())
 
         # update parameters
         eta.assign(eta_f())
@@ -126,6 +134,8 @@ def train(args):
             print('Epoch {0} finished!'.format(n))
             tfc.summary.scalar('metric/distance', distance, step=n)
             tfc.summary.scalar('metric/mean_reward', np.mean(batch_rewards), step=n)
+            tfc.summary.scalar('metric/mean_sum', np.mean(batch_sums), step=n)
+            tfc.summary.scalar('metric/last_reward', ep_rew, step=n)
             tfc.summary.scalar('metric/learning_rate', eta.value(), step=n)
             train_writer.flush()
 

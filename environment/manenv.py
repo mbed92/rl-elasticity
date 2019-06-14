@@ -39,14 +39,14 @@ class ManEnv(Env):
         target = self._get_point_in_base(self.random_target)
 
         d2 = np.linalg.norm(target - tool[0])
-        huber = -d2 if d2 < 0.2 else -np.square(d2)
+        huber = -d2
 
         u = np.squeeze(np.abs(0.002 * np.matmul(actions, np.transpose(actions))))
         huber -= u
 
         # big bonus for achieving target
         if d2 < 0.03:
-            huber += 100.0
+            huber += 10.0
 
         return huber, d2
 
@@ -80,17 +80,10 @@ class ManEnv(Env):
         if np.random.uniform() < keep_prob:
             actions = tf.random_normal(tf.shape(means), mean=means, stddev=std_devs)
         else:
-            actions = tf.random_uniform(tf.shape(means), means - 3 * std_devs, means + 3 * std_devs)
+            actions = tf.random_uniform(tf.shape(means), -2.0, 2.0)
         for i in range(self.num_actions):
             self.env.data.ctrl[i] = actions.numpy()[0, i]
         return actions
-
-    def take_discrete_action(self, actions):
-        for i in range(self.num_actions):
-            if actions[i] == 1:
-                self.env.data.ctrl[i] = 0.25
-            else:
-                self.env.data.ctrl[i] = 0.0
 
     def randomize_environment(self):
         # self._randomize_rope_position()

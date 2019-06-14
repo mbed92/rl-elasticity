@@ -34,8 +34,8 @@ def mean(lst):
 
 
 def standardize_rewards(rewards: list):
-    m, s = mean(rewards), np.sqrt(np.var(rewards))
-    return [(rew - m) / (s + 1e-06) for rew in rewards]
+    m, s = mean(rewards), np.std(rewards)
+    return [(rew - m) / (s + 1e-05) for rew in rewards]
 
 
 def bound_to_nonzero(rewards: list):
@@ -61,7 +61,7 @@ def reward_to_go(rewards: list):
 
 def is_done(current_distance, current_reward, t, args):
     if args.sim_max_dist < current_distance or current_distance < args.sim_min_dist or \
-            current_reward > 50 or \
+            current_reward > 9. or \
             t > args.sim_max_length:
         return True
     return False
