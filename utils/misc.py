@@ -65,8 +65,8 @@ def is_done(current_distance, current_reward, t, args):
 
 def process_rewards(rewards):
     r = rewards
-    r = standardize_rewards(r)
     r = bound_to_nonzero(r)
-    # r = reward_to_go(r)
+    r = reward_to_go(r)
     r = discount_rewards(r)
+    r = standardize_rewards(r)
     return r

@@ -39,11 +39,11 @@ class ManEnv(Env):
         distance = np.linalg.norm(self.random_target - ax_tool[0])
 
         # compose a reward
-        reward = -distance
+        reward = -distance * 10 if distance > 0.4 else -distance
         reward -= np.squeeze(np.abs(0.002 * np.matmul(actions, np.transpose(actions))))
 
         # big bonus for achieving ax_target
-        if distance < 0.03:
+        if distance < 0.1:
             reward += 10.0
 
         return reward, distance
