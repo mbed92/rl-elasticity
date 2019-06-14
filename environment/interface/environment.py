@@ -21,8 +21,5 @@ class Env(object):
     def take_continuous_action(self, means, std_devs, keep_prob):
         raise NotImplementedError("Not implemented")
 
-    def take_discrete_action(self, actions):
-        raise NotImplementedError("Not implemented")
-
     def randomize_environment(self):
         raise NotImplementedError("Not implemented")
