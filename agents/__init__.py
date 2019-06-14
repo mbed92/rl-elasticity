@@ -1,1 +1,1 @@
-from .base import ContinuousAgent
+from .base import ContinuousAgent, ValueEstimator

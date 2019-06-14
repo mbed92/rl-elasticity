@@ -81,17 +81,16 @@ def train(args):
 
             # compute and store gradients
             grads = tape.gradient(loss, model.trainable_variables)
-            # grads = [tf.clip_by_value(g, -1., 1.) for g in grads]
             ep_log_grad.append(grads)
             t += 1
 
             # compute grad log-likelihood for a current episode
             if is_done(distance, ep_rew, t, args):
                 if len(ep_rewards) > 5 and len(ep_rewards) == len(ep_log_grad):
-                    ep_rewards = standardize_rewards(ep_rewards)
                     ep_rewards = reward_to_go(ep_rewards)
                     ep_rewards = bound_to_nonzero(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
+                    ep_rewards = standardize_rewards(ep_rewards)
                     ep_reward_sum, ep_reward_mean = sum(ep_rewards), mean(ep_rewards)
                     batch_rewards.append(ep_reward_mean)
                     batch_sums.append(ep_reward_mean)

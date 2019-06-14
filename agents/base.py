@@ -86,3 +86,20 @@ class ContinuousAgent(tf.keras.Model):
         log_std_devs = self.log_std_devs_estimator(logits, training=training)
 
         return mean_actions, log_std_devs
+
+
+class ValueEstimator(tf.keras.Model):
+    def __init__(self):
+        super(ValueEstimator, self).__init__()
+        self.estimator = tf.keras.Sequential([
+            tf.keras.layers.Dense(128, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(32, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(1, None)
+        ])
+
+    def call(self, inputs, training=None, mask=None):
+        return self.estimator(inputs, training=training)
