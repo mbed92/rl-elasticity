@@ -41,7 +41,6 @@ def train(args):
         batch_sums = []
         batch_value_looses = []
         batch_baselines = []
-        batch_advantages = []
         ep_rewards = []       # list for rewards accrued throughout ep
         ep_log_grad = []      # list of log-likelihood gradients
         total_policy_gradient = []   # list of gradients multiplied by rewards per epochs
@@ -56,22 +55,20 @@ def train(args):
         while True:
             rgb, poses, joints = env.get_observations()
             if rgb[0] is not None and poses is not None:
-                pass
-                # cv2.imshow("trajectory", rgb[0])
-                # cv2.waitKey(1)
+                # pass
+                cv2.imshow("trajectory", rgb[0])
+                cv2.waitKey(1)
             else:
                 continue
 
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as policy_tape:
-                ep_mean_act, ep_log_dev = policy_network([rgb, poses], True)
+                ep_mean_act, ep_log_dev = policy_network([poses, joints], True)
                 ep_std_dev, ep_variance = tf.exp(ep_log_dev) + 1e-05, tf.square(tf.exp(ep_log_dev)) + 1e-05
                 actions = env.take_continuous_action(ep_mean_act, ep_std_dev, keep_random)
                 env.step()
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
-
-                # optimize a mean and a std_dev - compute gradient from logprob
                 policy_loss = policy_network.compute_loss(ep_std_dev, ep_variance, ep_mean_act, actions, policy_reg)
 
             # compute and store gradients
@@ -91,17 +88,15 @@ def train(args):
                     with tf.GradientTape(persistent=True) as value_tape:
                         baseline = value_network([poses, joints], training=True)
                         value_loss = tf.losses.mean_squared_error(ep_reward_sum, baseline)
-                        advantage = ep_reward_sum - baseline
                     value_grads = value_tape.gradient(value_loss, value_network.trainable_variables)
                     value_network.update(value_grads, value_network, value_optimizer)
                     batch_value_looses.append(value_loss)
-                    batch_advantages.append(advantage)
                     batch_baselines.append(baseline)
 
                     # update PolicyNetwork
                     trajectory_gradient = []
                     for i, (grad, reward) in enumerate(zip(ep_log_grad, ep_rewards)):
-                        ep_log_grad[i] = [tf.multiply(g, (reward - advantage)) for g in grad]
+                        ep_log_grad[i] = [tf.multiply(g, reward - baseline) for g in grad]
                     for i, grad in enumerate(ep_log_grad):
                         trajectory_gradient = [tf.add(a, b) for a, b in zip(trajectory_gradient, grad)] if i > 0 else grad
 
@@ -113,7 +108,7 @@ def train(args):
                         break
 
                 # reset episode-specific variables
-                ep_rewards, ep_log_grad = [], []
+                ep_rewards, ep_log_grad, trajectory_gradient = [], [], []
                 env.randomize_environment()
                 env.reset()
                 t = 0
@@ -135,7 +130,6 @@ def train(args):
             tfc.summary.scalar('metric/last_reward', ep_rew, step=n)
             tfc.summary.scalar('metric/learning_rate', eta.value(), step=n)
             tfc.summary.scalar('metric/value_loss', np.mean(batch_value_looses), step=n)
-            tfc.summary.scalar('metric/advantages', np.mean(batch_advantages), step=n)
             tfc.summary.scalar('metric/baselines', np.mean(batch_baselines), step=n)
             train_writer.flush()
 

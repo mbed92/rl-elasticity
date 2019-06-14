@@ -67,6 +67,6 @@ def process_rewards(rewards):
     r = rewards
     r = standardize_rewards(r)
     r = bound_to_nonzero(r)
-    r = reward_to_go(r)
+    # r = reward_to_go(r)
     r = discount_rewards(r)
     return r

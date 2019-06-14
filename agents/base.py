@@ -47,6 +47,15 @@ class PolicyNetwork(Base):
             tf.keras.layers.Dense(128, None)
         ])
 
+        self.joints_process = tf.keras.Sequential([
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(512, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(256, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(128, None)
+        ])
+
         self.RNN = tf.keras.layers.LSTMCell(128)
 
         self.action_estimator = tf.keras.Sequential([
@@ -72,13 +81,15 @@ class PolicyNetwork(Base):
         self.hidden_state = None
 
     def call(self, inputs, training=None, mask=None):
-        rgb = inputs[0]
-        poses = inputs[1]
+        # rgb = inputs[0]
+        poses = inputs[0]
+        joints = inputs[1]
 
-        rgb_logits = self.rgb_process(rgb, training=training)
+        # rgb_logits = self.rgb_process(rgb, training=training)
         pos_logits = self.pose_process(poses, training=training)
+        joi_logits = self.joints_process(poses, training=training)
 
-        state = tf.concat([rgb_logits, pos_logits], axis=0)
+        state = tf.concat([pos_logits, joi_logits], axis=0)
         integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
 
         # add a flavour of a history
