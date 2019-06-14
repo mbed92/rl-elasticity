@@ -1,10 +1,20 @@
 import tensorflow as tf
+import tensorflow.contrib as tfc
 
 
-class ContinuousAgent(tf.keras.Model):
+class Base(tf.keras.Model):
+
+    @staticmethod
+    def update(grads, network, optimizer):
+        if grads:
+            optimizer.apply_gradients(zip(grads, network.trainable_variables),
+                                      global_step=tf.train.get_or_create_global_step())
+
+
+class PolicyNetwork(Base):
 
     def __init__(self, num_controls):
-        super(ContinuousAgent, self).__init__()
+        super(PolicyNetwork, self).__init__()
 
         self.rgb_process = tf.keras.Sequential([
             tf.keras.layers.Conv2D(16, (3, 3), 2, 'same', activation=None),
@@ -37,8 +47,6 @@ class ContinuousAgent(tf.keras.Model):
             tf.keras.layers.Dense(128, None)
         ])
 
-        # cells = [tf.keras.layers.LSTMCell(128)]
-        # self.RNN = tf.keras.layers.RNN(cells)
         self.RNN = tf.keras.layers.LSTMCell(128)
 
         self.action_estimator = tf.keras.Sequential([
@@ -87,19 +95,49 @@ class ContinuousAgent(tf.keras.Model):
 
         return mean_actions, log_std_devs
 
+    def compute_loss(self, ep_std_dev, ep_variance, ep_mean_act, actions, regularier):
+        policy_loss = tf.log((1 / ep_std_dev) + 1e-05) - (1 / ep_variance) * tf.losses.mean_squared_error(ep_mean_act, actions)
+        policy_loss = tf.reduce_mean(policy_loss)
 
-class ValueEstimator(tf.keras.Model):
+        # apply regularization
+        reg_value = tfc.layers.apply_regularization(regularier, self.trainable_variables)
+        return policy_loss + reg_value
+
+
+class ValueEstimator(Base):
     def __init__(self):
         super(ValueEstimator, self).__init__()
-        self.estimator = tf.keras.Sequential([
-            tf.keras.layers.Dense(128, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
+        self.pose_net = tf.keras.Sequential([
+            tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(64, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(32, tf.nn.relu),
+            tf.keras.layers.Dense(16, None)
+        ])
+
+        self.obs_net = tf.keras.Sequential([
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(64, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(16, None)
+        ])
+
+        self.integrator = tf.keras.Sequential([
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(16, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(16, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(1, None)
         ])
 
     def call(self, inputs, training=None, mask=None):
-        return self.estimator(inputs, training=training)
+        poses = inputs[0]
+        joints = inputs[1]
+        pose_logits = self.pose_net(poses, training=training)
+        joint_logits = self.obs_net(joints, training=training)
+        state = tf.concat([pose_logits, joint_logits], axis=0)
+        integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
+        return tf.squeeze(self.integrator(integrator_feed, training=training))
+
+    def compute_loss(self, reward_sums, baseline):
+        return tf.losses.mean_squared_error(reward_sums, baseline)

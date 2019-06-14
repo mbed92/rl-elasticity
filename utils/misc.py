@@ -29,12 +29,8 @@ def update_keep_random(initial_keep_random, epoch, epochs):
     return val if 0.0 < val < 1.0 else 1.0
 
 
-def mean(lst):
-    return sum(lst) / len(lst)
-
-
 def standardize_rewards(rewards: list):
-    m, s = mean(rewards), np.std(rewards)
+    m, s = np.mean(rewards), np.std(rewards)
     return [(rew - m) / (s + 1e-05) for rew in rewards]
 
 
@@ -66,3 +62,11 @@ def is_done(current_distance, current_reward, t, args):
         return True
     return False
 
+
+def process_rewards(rewards):
+    r = rewards
+    r = standardize_rewards(r)
+    r = bound_to_nonzero(r)
+    r = reward_to_go(r)
+    r = discount_rewards(r)
+    return r

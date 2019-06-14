@@ -1,1 +1,1 @@
-from .base import ContinuousAgent, ValueEstimator
+from .base import PolicyNetwork, ValueEstimator

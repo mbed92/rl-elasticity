@@ -68,7 +68,8 @@ class ManEnv(Env):
     def get_observations(self):
         self._get_camera_image()
         self._get_poses()
-        return self.images, self.poses
+        self._get_joints()
+        return self.images, self.poses, self.joints
 
     def take_continuous_action(self, means, std_devs, keep_prob):
         std_devs = np.abs(std_devs)
