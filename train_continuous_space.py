@@ -111,7 +111,6 @@ def train(args):
                     print("Episode is done! Mean reward: {0}, keep random ratio: {1}, distance: {2}".format(ep_reward_mean, keep_random, distance))
                     trajs += 1
                     if trajs >= args.update_step:
-                        print("Apply gradients!")
                         break
 
                 # reset episode-specific variables
@@ -125,13 +124,14 @@ def train(args):
         if total_gradient:
             optimizer.apply_gradients(zip(total_gradient, model.trainable_variables),
                                       global_step=tf.train.get_or_create_global_step())
+            print('Epoch {0} finished!'.format(n))
 
         # update parameters
         eta.assign(eta_f())
 
         # update summary
         with tfc.summary.always_record_summaries():
-            print('Epoch {0} finished!'.format(n))
+            tfc.summary.histogram('histogram/total_gradient', total_gradient)
             tfc.summary.scalar('metric/distance', distance, step=n)
             tfc.summary.scalar('metric/mean_reward', np.mean(batch_rewards), step=n)
             tfc.summary.scalar('metric/mean_sum', np.mean(batch_sums), step=n)
