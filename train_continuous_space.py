@@ -51,8 +51,9 @@ def train(args):
         while True:
             rgb, poses, _ = env.get_observations()
             if rgb[0] is not None and poses is not None:
-                cv2.imshow("trajectory", rgb[0])
-                cv2.waitKey(1)
+                pass
+                # cv2.imshow("trajectory", rgb[0])
+                # cv2.waitKey(1)
             else:
                 continue
 
@@ -65,7 +66,7 @@ def train(args):
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
 
-                # optimize a mean and a std_dev
+                # optimize a mean and a std_dev - compute gradient from logprob
                 loss_value = tf.log((1 / ep_std_dev) + 1e-05) - (1 / ep_variance) * tf.losses.mean_squared_error(ep_mean_act, actions)
                 loss_value = tf.reduce_mean(loss_value)
 
@@ -75,8 +76,9 @@ def train(args):
                 # do not let to optimize when loss -> NaN
                 if tf.is_nan(loss_value):
                     print("Loss is nan: ep_mean_act {0}, ep_log_dev: {1}".format(ep_mean_act, ep_log_dev))
-                    continue
+                    break
 
+                # apply regularization
                 reg_value = tfc.layers.apply_regularization(l2_reg, model.trainable_variables)
                 loss = loss_value + reg_value
 
@@ -90,16 +92,18 @@ def train(args):
             if is_done(distance, ep_rew, t, args):
                 if len(ep_rewards) > 5 and len(ep_rewards) == len(ep_log_grad):
                     ep_rewards = bound_to_nonzero(ep_rewards)
+                    # ep_rewards = reward_to_go(ep_rewards)
                     ep_rewards = discount_rewards(ep_rewards)
-                    ep_rewards = reward_to_go(ep_rewards)
                     ep_rewards = standardize_rewards(ep_rewards)
-                    ep_reward_sum, baseline = sum(ep_rewards), mean(ep_rewards)
-                    batch_rewards.append(baseline)
+                    ep_reward_sum, ep_reward_mean = sum(ep_rewards), mean(ep_rewards)
+
+                    batch_rewards.append(ep_reward_mean)
+                    batch_sums.append(ep_reward_mean)
 
                     # gradient[i] * (reward - b)
                     for i, (grad, reward) in enumerate(zip(ep_log_grad, ep_rewards)):
-                        ep_log_grad[i] = [tf.multiply(g, (reward - baseline)) for g in grad]
-                        # ep_log_grad[i] = [tf.multiply(g, reward) for g in grad]
+                        # ep_log_grad[i] = [tf.multiply(g, (reward - ep_reward_mean)) for g in grad]
+                        ep_log_grad[i] = [tf.multiply(g, reward) for g in grad]
 
                     # sum over one trajectory
                     trajectory_gradient = []
@@ -108,7 +112,7 @@ def train(args):
 
                     # sum over all trajectories
                     total_gradient = [tf.add(prob, prev_prob) for prob, prev_prob in zip(total_gradient, trajectory_gradient)] if len(total_gradient) > 0 else trajectory_gradient
-                    print("Episode is done! Mean reward: {0}, keep random ratio: {1}, distance: {2}".format(baseline, keep_random, distance))
+                    print("Episode is done! Mean reward: {0}, keep random ratio: {1}, distance: {2}".format(ep_reward_mean, keep_random, distance))
                     trajs += 1
                     if trajs >= args.update_step:
                         print("Apply gradients!")

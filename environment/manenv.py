@@ -8,8 +8,8 @@ import tensorflow as tf
 
 
 x_range = (0.4, 0.6)
-y_range = (-0.5, -0.5)
-z_range = (0.5, 0.9)
+y_range = (-0.5, 0.5)
+z_range = (0.4, 0.9)
 EPS = 1e-8
 
 
@@ -35,20 +35,19 @@ class ManEnv(Env):
 
     # main methods
     def get_reward(self, actions):
-        tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
-        target = self._get_point_in_base(self.random_target)
+        ax_tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
+        ax_target = self._get_point_in_base(self.random_target)
+        distance = np.linalg.norm(ax_target - ax_tool[0])
 
-        d2 = np.linalg.norm(target - tool[0])
-        huber = -d2
+        # compose a reward
+        reward = -distance
+        reward -= np.squeeze(np.abs(0.002 * np.matmul(actions, np.transpose(actions))))
 
-        u = np.squeeze(np.abs(0.002 * np.matmul(actions, np.transpose(actions))))
-        huber -= u
+        # big bonus for achieving ax_target
+        if distance < 0.03:
+            reward += 10.0
 
-        # big bonus for achieving target
-        if d2 < 0.03:
-            huber += 10.0
-
-        return huber, d2
+        return reward, distance
 
     def step(self, num_steps=-1):
         if num_steps < 1:
