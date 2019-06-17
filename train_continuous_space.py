@@ -41,9 +41,9 @@ def train(args):
         batch_sums = []
         batch_value_looses = []
         batch_baselines = []
-        ep_rewards = []       # list for rewards accrued throughout ep
-        ep_log_grad = []      # list of log-likelihood gradients
-        total_policy_gradient = []   # list of gradients multiplied by rewards per epochs
+        ep_rewards = []                 # list for rewards accrued throughout ep
+        ep_log_grad = []                # list of log-likelihood gradients
+        total_policy_gradient = []      # list of gradients multiplied by rewards per epochs
         keep_random = update_keep_random(args.keep_random, n, args.epochs)
 
         # domain randomization after each epoch
@@ -55,9 +55,9 @@ def train(args):
         while True:
             rgb, poses, joints = env.get_observations()
             if rgb[0] is not None and poses is not None:
-                # pass
-                cv2.imshow("trajectory", rgb[0])
-                cv2.waitKey(1)
+                pass
+                # cv2.imshow("trajectory", rgb[0])
+                # cv2.waitKey(1)
             else:
                 continue
 
@@ -102,9 +102,9 @@ def train(args):
 
                     # sum over all trajectories
                     total_policy_gradient = [tf.add(prob, prev_prob) for prob, prev_prob in zip(total_policy_gradient, trajectory_gradient)] if len(total_policy_gradient) > 0 else trajectory_gradient
-                    print("Episode is done: keep random ratio: {0}, distance: {1}".format(keep_random, distance))
                     trajs += 1
                     if trajs >= args.update_step:
+                        print("Episode {0} is done: keep random ratio: {1}, distance: {2}".format(n, keep_random, distance))
                         break
 
                 # reset episode-specific variables
@@ -141,7 +141,7 @@ def train(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=2000)
+    parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--model-save-interval', type=int, default=50)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
     parser.add_argument('--update-step', type=int, default=2)
@@ -152,13 +152,13 @@ if __name__ == '__main__':
     parser.add_argument('--sim-cam-img-h', type=int, default=480)
     parser.add_argument('--sim-max-length', type=int, default=100)
     parser.add_argument('--sim-max-dist', type=float, default=1.5)
-    parser.add_argument('--sim-min-dist', type=float, default=0.01)
+    parser.add_argument('--sim-min-dist', type=float, default=0.05)
     parser.add_argument('--policy-restore-path', type=str, default='')
     parser.add_argument('--value-restore-path', type=str, default='')
     parser.add_argument('--policy-save-path', type=str, default='./saved/policy')
     parser.add_argument('--value-save-path', type=str, default='./saved/value')
     parser.add_argument('--logs-path', type=str, default='./log/1')
-    parser.add_argument('--keep-random', type=float, default=0.8)
+    parser.add_argument('--keep-random', type=float, default=0.5)
     parser.add_argument('--mujoco-model-path', type=str, default='./models/ur5/UR5gripper.xml')
     args, _ = parser.parse_known_args()
 

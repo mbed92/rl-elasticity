@@ -87,10 +87,10 @@ class PolicyNetwork(Base):
 
         # rgb_logits = self.rgb_process(rgb, training=training)
         pos_logits = self.pose_process(poses, training=training)
-        joi_logits = self.joints_process(poses, training=training)
+        joi_logits = self.joints_process(joints, training=training)
 
         state = tf.concat([pos_logits, joi_logits], axis=0)
-        integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
+        integrator_feed = tf.reduce_sum(state, axis=0, keepdims=True)
 
         # add a flavour of a history
         self.hidden_state = self.RNN.get_initial_state(batch_size=tf.shape(integrator_feed)[0],
