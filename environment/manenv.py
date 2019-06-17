@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 
 
-x_range = (0.4, 0.6)
+x_range = (0.26, 0.5)
 y_range = (-0.5, 0.5)
 z_range = (0.4, 0.9)
 
@@ -31,16 +31,20 @@ class ManEnv(Env):
         scene = mujoco_py.load_model_from_path(env_path)
         self.env = mujoco_py.MjSim(scene)
         self.num_actions = self.env.data.ctrl.size
-        self.viewer = mujoco_py.MjRenderContextOffscreen(self.env, self.cam_id)
+        # self.viewer = mujoco_py.MjRenderContextOffscreen(self.env, self.cam_id)
 
     # main methods
     def get_reward(self, actions):
         ax_tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
         distance = np.linalg.norm(self.random_target - ax_tool[0])
 
-        # compose a reward
-        reward = -distance * 10 if distance > 0.4 else -distance
-        reward -= np.squeeze(np.abs(0.002 * np.matmul(actions, np.transpose(actions))))
+        # compose a reward (Huber) based on a distance
+        delta = 0.3
+        reward = -0.5 * distance ** 2 if distance < delta else -delta * (distance - 0.5 * delta)
+
+        # add a penalty term for taking too big actions
+        gamma = 0.002
+        reward -= gamma * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))
 
         # big bonus for achieving ax_target
         if distance < 0.1:
@@ -66,10 +70,10 @@ class ManEnv(Env):
             self.step(self.sim_start)
 
     def get_observations(self):
-        self._get_camera_image()
+        # self._get_camera_image()
         self._get_poses()
         self._get_joints()
-        return self.images, self.poses, self.joints
+        return self.poses, self.joints
 
     def take_continuous_action(self, means, std_devs, keep_prob):
         std_devs = np.abs(std_devs)
@@ -78,7 +82,7 @@ class ManEnv(Env):
         else:
             actions = tf.random_uniform(tf.shape(means), -2.0, 2.0)
         for i in range(self.num_actions):
-            self.env.data.ctrl[i] += actions.numpy()[0, i]
+            self.env.data.ctrl[i] += actions.numpy()[i]
         return actions
 
     def randomize_environment(self):
@@ -119,11 +123,12 @@ class ManEnv(Env):
         self.env.model.body_pos[1][1] = (np.random.uniform() - 0.5) / 10
         self.env.forward()
 
-    def _get_camera_image(self):
-        self.viewer.render(self.img_width, self.img_height, self.cam_id)
-        rgb = np.asarray(self.viewer.read_pixels(self.img_width, self.img_height, depth=False)[::-1, :, :], dtype=np.float32)
-        rgb = rgb / np.max(rgb) if np.max(rgb) > 0 else rgb / 255.
-        self.images = np.float32(rgb[np.newaxis, :, :, :])
+    # def _get_camera_image(self):
+    #     # self.viewer.render(self.img_width, self.img_height, self.cam_id)
+    #     # rgb = np.asarray(self.viewer.read_pixels(self.img_width, self.img_height, depth=False)[::-1, :, :], dtype=np.float32)
+    #     # rgb = rgb / np.max(rgb) if np.max(rgb) > 0 else rgb / 255.
+    #     # self.images = np.float32(rgb[np.newaxis, :, :, :])
+    #     pass
 
     def _get_point_in_base(self, point):
         base_xyz = self.env.data.get_body_xpos(self.link_base_name)

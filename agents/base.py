@@ -15,31 +15,36 @@ class PolicyNetwork(Base):
 
     def __init__(self, num_controls):
         super(PolicyNetwork, self).__init__()
+        self.num_controls = num_controls
 
-        self.rgb_process = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(16, (3, 3), 2, 'same', activation=None),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(32, (3, 3), 4, 'same', activation=None),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=None),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(128, (3, 3), 4, 'same', activation=None),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Conv2D(256, (3, 3), 2, 'same', activation=None),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ReLU(),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(256, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(128, None)
-        ])
+        # self.rgb_process = tf.keras.Sequential([
+        #     tf.keras.layers.Conv2D(16, (3, 3), 2, 'same', activation=None),
+        #     tf.keras.layers.BatchNormalization(),
+        #     tf.keras.layers.ReLU(),
+        #     tf.keras.layers.Conv2D(32, (3, 3), 4, 'same', activation=None),
+        #     tf.keras.layers.BatchNormalization(),
+        #     tf.keras.layers.ReLU(),
+        #     tf.keras.layers.Conv2D(64, (3, 3), 2, 'same', activation=None),
+        #     tf.keras.layers.BatchNormalization(),
+        #     tf.keras.layers.ReLU(),
+        #     tf.keras.layers.Conv2D(128, (3, 3), 4, 'same', activation=None),
+        #     tf.keras.layers.BatchNormalization(),
+        #     tf.keras.layers.ReLU(),
+        #     tf.keras.layers.Conv2D(256, (3, 3), 2, 'same', activation=None),
+        #     tf.keras.layers.BatchNormalization(),
+        #     tf.keras.layers.ReLU(),
+        #     tf.keras.layers.Flatten(),
+        #     tf.keras.layers.Dense(256, tf.nn.relu),
+        #     tf.keras.layers.Dropout(0.3),
+        #     tf.keras.layers.Dense(128, None)
+        # ])
 
         self.pose_process = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(2048, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(1024, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(512, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(256, tf.nn.relu),
@@ -49,6 +54,10 @@ class PolicyNetwork(Base):
 
         self.joints_process = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(2048, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
+            tf.keras.layers.Dense(1024, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(512, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(256, tf.nn.relu),
@@ -58,25 +67,25 @@ class PolicyNetwork(Base):
 
         self.RNN = tf.keras.layers.LSTMCell(128)
 
-        self.action_estimator = tf.keras.Sequential([
+        self.estimator = tf.keras.Sequential([
             tf.keras.layers.Dense(128, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(64, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(32, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(num_controls, None)
+            tf.keras.layers.Dense(2 * self.num_controls, None)
         ])
 
-        self.log_std_devs_estimator = tf.keras.Sequential([
-            tf.keras.layers.Dense(128, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(64, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(32, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(num_controls, None)
-        ])
+        # self.log_std_devs_estimator = tf.keras.Sequential([
+        #     tf.keras.layers.Dense(128, tf.nn.relu),
+        #     tf.keras.layers.Dropout(0.3),
+        #     tf.keras.layers.Dense(64, tf.nn.relu),
+        #     tf.keras.layers.Dropout(0.3),
+        #     tf.keras.layers.Dense(32, tf.nn.relu),
+        #     tf.keras.layers.Dropout(0.3),
+        #     tf.keras.layers.Dense(self.num_controls, None)
+        # ])
 
         self.hidden_state = None
 
@@ -90,19 +99,21 @@ class PolicyNetwork(Base):
         joi_logits = self.joints_process(joints, training=training)
 
         state = tf.concat([pos_logits, joi_logits], axis=0)
-        integrator_feed = tf.reduce_sum(state, axis=0, keepdims=True)
+        integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
 
         # add a flavour of a history
         self.hidden_state = self.RNN.get_initial_state(batch_size=tf.shape(integrator_feed)[0],
                                                        dtype=integrator_feed.dtype) if self.hidden_state is None else self.hidden_state
         logits, self.hidden_state = self.RNN(integrator_feed, states=self.hidden_state, training=training)
-        # logits = self.RNN(integrator_feed)
 
-        # estimate mean actions (-inf, inf)
-        mean_actions = self.action_estimator(logits, training=training)
+        # # estimate mean actions (-inf, inf)
+        # mean_actions = self.action_estimator(logits, training=training)
+        #
+        # # estimate log of std deviations (-inf, inf)
+        # log_std_devs = self.log_std_devs_estimator(logits, training=training)
 
-        # estimate log of std deviations (-inf, inf)
-        log_std_devs = self.log_std_devs_estimator(logits, training=training)
+        logits = self.estimator(logits, training=True)
+        mean_actions, log_std_devs = logits[0, :self.num_controls], logits[0, self.num_controls:]
 
         return mean_actions, log_std_devs
 
@@ -120,21 +131,25 @@ class ValueEstimator(Base):
         super(ValueEstimator, self).__init__()
         self.pose_net = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(128, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(64, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(16, None)
+            tf.keras.layers.Dense(32, None)
         ])
 
         self.obs_net = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(128, tf.nn.relu),
+            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(64, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(16, None)
+            tf.keras.layers.Dense(32, None)
         ])
 
         self.integrator = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(16, tf.nn.relu),
+            tf.keras.layers.Dense(32, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(16, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
