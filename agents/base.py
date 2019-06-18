@@ -41,10 +41,6 @@ class PolicyNetwork(Base):
 
         self.pose_process = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(2048, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(1024, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(512, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(256, tf.nn.relu),
@@ -54,10 +50,6 @@ class PolicyNetwork(Base):
 
         self.joints_process = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(2048, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(1024, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(512, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(256, tf.nn.relu),
@@ -65,7 +57,7 @@ class PolicyNetwork(Base):
             tf.keras.layers.Dense(128, None)
         ])
 
-        self.RNN = tf.keras.layers.LSTMCell(128)
+        self.LSTM = tf.keras.layers.LSTMCell(128)
 
         self.estimator = tf.keras.Sequential([
             tf.keras.layers.Dense(128, tf.nn.relu),
@@ -76,16 +68,6 @@ class PolicyNetwork(Base):
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(2 * self.num_controls, None)
         ])
-
-        # self.log_std_devs_estimator = tf.keras.Sequential([
-        #     tf.keras.layers.Dense(128, tf.nn.relu),
-        #     tf.keras.layers.Dropout(0.3),
-        #     tf.keras.layers.Dense(64, tf.nn.relu),
-        #     tf.keras.layers.Dropout(0.3),
-        #     tf.keras.layers.Dense(32, tf.nn.relu),
-        #     tf.keras.layers.Dropout(0.3),
-        #     tf.keras.layers.Dense(self.num_controls, None)
-        # ])
 
         self.hidden_state = None
 
@@ -101,18 +83,14 @@ class PolicyNetwork(Base):
         state = tf.concat([pos_logits, joi_logits], axis=0)
         integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
 
-        # add a flavour of a history
-        self.hidden_state = self.RNN.get_initial_state(batch_size=tf.shape(integrator_feed)[0],
-                                                       dtype=integrator_feed.dtype) if self.hidden_state is None else self.hidden_state
-        logits, self.hidden_state = self.RNN(integrator_feed, states=self.hidden_state, training=training)
+        # push the hidden state into the LSTM
+        self.hidden_state = self.LSTM.get_initial_state(batch_size=tf.shape(integrator_feed)[0], dtype=integrator_feed.dtype) if self.hidden_state is None else self.hidden_state
+        logits, self.hidden_state = self.LSTM(integrator_feed, states=self.hidden_state, training=training)
 
-        # # estimate mean actions (-inf, inf)
-        # mean_actions = self.action_estimator(logits, training=training)
-        #
-        # # estimate log of std deviations (-inf, inf)
-        # log_std_devs = self.log_std_devs_estimator(logits, training=training)
+        # estimate mean actions (-inf, inf)
+        logits = self.estimator(logits, training=training)
 
-        logits = self.estimator(logits, training=True)
+        # logits = self.estimator(logits, training=True)
         mean_actions, log_std_devs = logits[0, :self.num_controls], logits[0, self.num_controls:]
 
         return mean_actions, log_std_devs

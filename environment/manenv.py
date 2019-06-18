@@ -45,11 +45,6 @@ class ManEnv(Env):
         # add a penalty term for taking too big actions
         gamma = 0.002
         reward -= gamma * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))
-
-        # big bonus for achieving ax_target
-        if distance < 0.1:
-            reward += 10.0
-
         return reward, distance
 
     def step(self, num_steps=-1):
