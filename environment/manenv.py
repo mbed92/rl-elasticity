@@ -43,7 +43,7 @@ class ManEnv(Env):
         reward = -0.5 * distance ** 2 if distance < delta else -delta * (distance - 0.5 * delta)
 
         # add a penalty term for taking too big actions
-        gamma = 0.002
+        gamma = 0.005
         reward -= gamma * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))
         return reward, distance
 
@@ -73,10 +73,12 @@ class ManEnv(Env):
     def take_continuous_action(self, normal_dist, keep_prob):
         # sample actions
         uniform_dist = tf.distributions.Uniform(-1.0, 1.0)
+
         if np.random.uniform() < keep_prob:
             actions = normal_dist.sample(1)
         else:
-            actions = uniform_dist.sample(1)
+            shape = tf.shape(normal_dist.sample(1))
+            actions = uniform_dist.sample(shape)
 
         # apply
         actions = tf.squeeze(actions)

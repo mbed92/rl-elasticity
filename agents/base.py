@@ -1,5 +1,4 @@
 import tensorflow as tf
-import tensorflow.contrib as tfc
 
 
 class Base(tf.keras.Model):
@@ -100,14 +99,14 @@ class PolicyNetwork(Base):
 
         return mu, sigma, normal_dist
 
-    def compute_loss(self, action_distribution, action_samples, regularizer):
-        policy_loss = action_distribution.log_prob(action_samples)
+    def compute_loss(self, action_distribution, action_samples, regularizer, target):
+        policy_loss = action_distribution.log_prob(action_samples) * target
         policy_loss -= action_distribution.entropy() * 1e-1
         policy_loss = tf.reduce_mean(policy_loss)
 
         # apply regularization
-        reg_value = tfc.layers.apply_regularization(regularizer, self.trainable_variables)
-        return policy_loss + reg_value
+        # reg_value = tfc.layers.apply_regularization(regularizer, self.trainable_variables)
+        return policy_loss  # + reg_value
 
 
 class ValueEstimator(Base):
@@ -115,26 +114,18 @@ class ValueEstimator(Base):
         super(ValueEstimator, self).__init__()
         self.pose_net = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(128, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(64, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(32, None)
+            tf.keras.layers.Dense(16, None)
         ])
 
         self.obs_net = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(128, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(64, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
-            tf.keras.layers.Dense(32, None)
+            tf.keras.layers.Dense(16, None)
         ])
 
         self.integrator = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(32, tf.nn.relu),
-            tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(16, tf.nn.relu),
             tf.keras.layers.Dropout(0.3),
             tf.keras.layers.Dense(1, None)
@@ -149,5 +140,5 @@ class ValueEstimator(Base):
         integrator_feed = tf.reduce_mean(state, axis=0, keepdims=True)
         return tf.squeeze(self.integrator(integrator_feed, training=training))
 
-    def compute_loss(self, reward_sums, baseline):
-        return tf.losses.mean_squared_error(reward_sums, baseline)
+    def compute_loss(self, output, target):
+        return tf.losses.mean_squared_error(target, output)

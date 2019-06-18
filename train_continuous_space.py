@@ -2,12 +2,15 @@ from argparse import ArgumentParser
 from agents import PolicyNetwork, ValueEstimator
 from environment import ManEnv
 from utils import *
+import collections
+
 
 tf.enable_eager_execution()
 tf.executing_eagerly()
 
 # remove tensorflow warning "tried to deallocate nullptr"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+Transition = collections.namedtuple("Transition", ["state", "action", "reward", "next_state", "policy_grads", "value_grads"])
 
 
 def train(args):
@@ -45,13 +48,12 @@ def train(args):
 
     # run training
     for n in range(args.epochs):
-        batch_rewards = []
-        batch_sums = []
-        batch_value_looses = []
-        batch_baselines = []
-        ep_rewards = []                 # list for rewards accrued throughout ep
-        ep_log_grad = []                # list of log-likelihood gradients
-        total_policy_gradient = []      # list of gradients weighted by rewards per each epochs
+        ep_rewards = []
+        ep_log_grad = []
+        ep_val_grad = []
+        total_policy_gradient = []
+        total_value_gradient = []
+        # value_loss = []
         keep_random = update_keep_random(args.keep_random, n, args.epochs)
 
         # domain randomization after each epoch
@@ -61,66 +63,57 @@ def train(args):
         # start trajectory
         t, trajs = 0, 0
         while True:
-            poses, joints = env.get_observations()
-            # if rgb[0] is not None and poses is not None:
-            #     # cv2.imshow("trajectory", rgb[0])
-            #     # cv2.waitKey(1)
-            # else:
-            #     continue
-
-            # take action in the environment under the current policy
-            with tf.GradientTape(persistent=True) as policy_tape:
-                _, _, action_dist = policy_network([poses, joints], True)
+            with tf.GradientTape() as policy_tape:
+                # act in the environment
+                poses, joints = env.get_observations()
+                _, _, action_dist = policy_network([poses, joints], training=True)
                 actions = env.take_continuous_action(action_dist, keep_random)
                 env.step()
-                ep_rew, distance = env.get_reward(actions)
-                ep_rewards.append(ep_rew)
-                policy_loss = policy_network.compute_loss(action_dist, actions, policy_reg)
 
-            # compute and store gradients in PolicyNetwork
+                # evaluate a current state based on actions and next state (CRITIC)
+                ep_rew, distance = env.get_reward(actions)
+                next_poses, next_joints = env.get_observations()
+                with tf.GradientTape() as value_tape:
+                    value_current = value_network([poses, joints], training=True)
+                    value_next = value_network([next_poses, next_joints], training=True)
+                    td_target = ep_rew + 0.95 * value_next
+                    value_loss = value_network.compute_loss(value_current, td_target)
+                value_grads = value_tape.gradient(value_loss, value_network.trainable_variables)
+
+                # take action in the environment under the current policy (ACTOR)
+                td_error = td_target - value_current
+                policy_loss = policy_network.compute_loss(action_dist, actions, policy_reg, td_error)
             policy_grads = policy_tape.gradient(policy_loss, policy_network.trainable_variables)
-            ep_log_grad.append(policy_grads)
+
             t += 1
+            ep_rewards.append(ep_rew)
+            ep_log_grad.append(policy_grads)
+            ep_val_grad.append(value_grads)
 
             # compute grad log-likelihood for a current episode
             if is_done(distance, ep_rew, t, args):
-                if len(ep_rewards) > 5 and len(ep_rewards) == len(ep_log_grad):
-                    ep_rewards = process_rewards(ep_rewards)
-                    ep_reward_sum, ep_reward_mean = np.sum(ep_rewards), np.mean(ep_rewards)
+                if len(ep_rewards) > 5:
+                    for i, (grad_val, grad_pol )in enumerate(zip(ep_val_grad, ep_log_grad)):
+                        total_value_gradient = [a + b for a, b in zip(total_value_gradient, grad_val)] if i > 0 else grad_val
+                        total_policy_gradient = [a + b for a, b in zip(total_policy_gradient, grad_pol)] if i > 0 else grad_pol
 
-                    # update ValueNetwork
-                    with tf.GradientTape(persistent=True) as value_tape:
-                        baseline = value_network([poses, joints], training=True)
-                        value_loss = value_network.compute_loss(ep_reward_sum, baseline)
-                    value_grads = value_tape.gradient(value_loss, value_network.trainable_variables)
-                    value_network.update(value_grads, value_network, value_optimizer)
-
-                    # update gradients of a PolicyNetwork
-                    trajectory_gradient = []
-                    for i, (grad, reward) in enumerate(zip(ep_log_grad, ep_rewards)):
-                        weighted_gradient = [tf.multiply(g, ep_reward_sum - baseline) for g in grad]
-                        trajectory_gradient = [tf.add(a, b) for a, b in zip(trajectory_gradient, weighted_gradient)] if i > 0 else weighted_gradient
-                    total_policy_gradient = [tf.add(a, b) for a, b in zip(total_policy_gradient, trajectory_gradient)] if len(total_policy_gradient) > 0 else trajectory_gradient
-
-                    # save metrics
-                    batch_value_looses.append(value_loss)
-                    batch_baselines.append(baseline)
-                    batch_rewards.append(ep_reward_mean)
-                    batch_sums.append(ep_reward_sum)
+                    # reset variables
+                    ep_rewards, ep_log_grad, ep_val_grad = [], [], []
                     trajs += 1
                     if trajs >= args.update_step:
                         print("Episode {0} is done: keep random ratio: {1}, distance: {2}".format(n, keep_random, distance))
                         break
 
                 # reset episode-specific variables
-                ep_rewards, ep_log_grad, trajectory_gradient, ep_val_grad = [], [], [], []
                 env.randomize_environment()
                 env.reset()
                 t = 0
 
-        # update PolicyNetwork
+        # update PolicyNetwork and ValueNetwork
+        total_value_gradient = [tf.divide(grad, trajs) for grad in total_value_gradient] if trajs > 0 else total_value_gradient
         total_policy_gradient = [tf.divide(grad, trajs) for grad in total_policy_gradient] if trajs > 0 else total_policy_gradient
         policy_network.update(total_policy_gradient, policy_network, policy_optimizer)
+        value_network.update(total_value_gradient, value_network, value_optimizer)
 
         # update summary
         eta_p.assign(eta_policy())
@@ -129,11 +122,7 @@ def train(args):
             for layer, grad in enumerate(total_policy_gradient):
                 tfc.summary.histogram('histogram/total_gradient_layer_{0}'.format(layer), grad)
             tfc.summary.scalar('metric/distance', distance, step=n)
-            tfc.summary.scalar('metric/mean_reward', np.mean(batch_rewards), step=n)
-            tfc.summary.scalar('metric/mean_sum', np.mean(batch_sums), step=n)
             tfc.summary.scalar('metric/last_reward', ep_rew, step=n)
-            tfc.summary.scalar('metric/value_loss', np.mean(batch_value_looses), step=n)
-            tfc.summary.scalar('metric/baselines', np.mean(batch_baselines), step=n)
             train_writer.flush()
 
         # save model
