@@ -70,12 +70,16 @@ class ManEnv(Env):
         self._get_joints()
         return self.poses, self.joints
 
-    def take_continuous_action(self, means, std_devs, keep_prob):
-        std_devs = np.abs(std_devs)
+    def take_continuous_action(self, normal_dist, keep_prob):
+        # sample actions
+        uniform_dist = tf.distributions.Uniform(-1.0, 1.0)
         if np.random.uniform() < keep_prob:
-            actions = tf.random_normal(tf.shape(means), mean=means, stddev=std_devs)
+            actions = normal_dist.sample(1)
         else:
-            actions = tf.random_uniform(tf.shape(means), -2.0, 2.0)
+            actions = uniform_dist.sample(1)
+
+        # apply
+        actions = tf.squeeze(actions)
         for i in range(self.num_actions):
             self.env.data.ctrl[i] += actions.numpy()[i]
         return actions

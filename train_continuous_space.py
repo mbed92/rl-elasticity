@@ -11,25 +11,36 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 def train(args):
+
+    # create the environment
     env_spec = ManEnv.get_std_spec(args)
     env = ManEnv(**env_spec)
     train_writer = setup_writer(args.logs_path)
     train_writer.set_as_default()
 
-    # make the policy network
+    # create policy and value estimators
     policy_network = PolicyNetwork(num_controls=env.num_actions)
     value_network = ValueEstimator()
 
-    # setup optimizer
-    eta = tfc.eager.Variable(args.learning_rate)
-    eta_f = tf.train.exponential_decay(
+    # setup optimizer and learning parameters
+    eta_p = tfc.eager.Variable(args.learning_rate)
+    eta_policy = tf.train.exponential_decay(
         args.learning_rate,
         tf.train.get_or_create_global_step(),
         args.epochs,
         0.98)
-    eta.assign(eta_f())
-    policy_optimizer, policy_ckpt = setup_optimizer(args.policy_restore_path, eta, policy_network)
-    value_optimizer, value_ckpt = setup_optimizer(args.value_restore_path, eta, value_network)
+    eta_p.assign(eta_policy())
+
+    eta_v = tfc.eager.Variable(args.learning_rate)
+    eta_value = tf.train.exponential_decay(
+        args.learning_rate * 100,
+        tf.train.get_or_create_global_step(),
+        args.epochs,
+        0.98)
+    eta_v.assign(eta_value())
+
+    policy_optimizer, policy_ckpt = setup_optimizer(args.policy_restore_path, eta_p, policy_network)
+    value_optimizer, value_ckpt = setup_optimizer(args.value_restore_path, eta_v, value_network)
     policy_reg = tf.keras.regularizers.l2(1e-6)
 
     # run training
@@ -59,13 +70,12 @@ def train(args):
 
             # take action in the environment under the current policy
             with tf.GradientTape(persistent=True) as policy_tape:
-                ep_mean_act, ep_log_dev = policy_network([poses, joints], True)
-                ep_std_dev, ep_variance = tf.exp(ep_log_dev) + 1e-05, tf.square(tf.exp(ep_log_dev)) + 1e-05
-                actions = env.take_continuous_action(ep_mean_act, ep_std_dev, keep_random)
+                _, _, action_dist = policy_network([poses, joints], True)
+                actions = env.take_continuous_action(action_dist, keep_random)
                 env.step()
                 ep_rew, distance = env.get_reward(actions)
                 ep_rewards.append(ep_rew)
-                policy_loss = policy_network.compute_loss(ep_std_dev, ep_variance, ep_mean_act, actions, policy_reg)
+                policy_loss = policy_network.compute_loss(action_dist, actions, policy_reg)
 
             # compute and store gradients in PolicyNetwork
             policy_grads = policy_tape.gradient(policy_loss, policy_network.trainable_variables)
@@ -113,7 +123,8 @@ def train(args):
         policy_network.update(total_policy_gradient, policy_network, policy_optimizer)
 
         # update summary
-        eta.assign(eta_f())
+        eta_p.assign(eta_policy())
+        eta_v.assign(eta_value())
         with tfc.summary.always_record_summaries():
             for layer, grad in enumerate(total_policy_gradient):
                 tfc.summary.histogram('histogram/total_gradient_layer_{0}'.format(layer), grad)
@@ -121,7 +132,6 @@ def train(args):
             tfc.summary.scalar('metric/mean_reward', np.mean(batch_rewards), step=n)
             tfc.summary.scalar('metric/mean_sum', np.mean(batch_sums), step=n)
             tfc.summary.scalar('metric/last_reward', ep_rew, step=n)
-            tfc.summary.scalar('metric/learning_rate', eta.value(), step=n)
             tfc.summary.scalar('metric/value_loss', np.mean(batch_value_looses), step=n)
             tfc.summary.scalar('metric/baselines', np.mean(batch_baselines), step=n)
             train_writer.flush()

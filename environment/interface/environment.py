@@ -6,7 +6,7 @@ class Env(object):
     def get_reward(self, *args):
         raise NotImplementedError("Not implemented")
 
-    def step(self, num_steps):
+    def step(self, *args):
         raise NotImplementedError("Not implemented")
 
     def reset(self):
@@ -15,7 +15,7 @@ class Env(object):
     def get_observations(self):
         raise NotImplementedError("Not implemented")
 
-    def take_continuous_action(self, means, std_devs, keep_prob):
+    def take_continuous_action(self, *args):
         raise NotImplementedError("Not implemented")
 
     def randomize_environment(self):
