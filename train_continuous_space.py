@@ -51,9 +51,14 @@ def train(args):
         ep_rewards = []
         ep_log_grad = []
         ep_val_grad = []
+        ep_value_looses = []
+        ep_policy_looses = []
+
         total_policy_gradient = []
         total_value_gradient = []
-        # value_loss = []
+        total_policy_loss = []
+        total_value_loss = []
+
         keep_random = update_keep_random(args.keep_random, n, args.epochs)
 
         # domain randomization after each epoch
@@ -66,7 +71,7 @@ def train(args):
             with tf.GradientTape() as policy_tape:
                 # act in the environment
                 poses, joints = env.get_observations()
-                _, _, action_dist = policy_network([poses, joints], training=True)
+                action_dist = policy_network([poses, joints], training=True)
                 actions = env.take_continuous_action(action_dist, keep_random)
                 env.step()
 
@@ -78,11 +83,13 @@ def train(args):
                     value_next = value_network([next_poses, next_joints], training=True)
                     td_target = ep_rew + 0.95 * value_next
                     value_loss = value_network.compute_loss(value_current, td_target)
+                    ep_value_looses.append(value_loss)
                 value_grads = value_tape.gradient(value_loss, value_network.trainable_variables)
 
                 # take action in the environment under the current policy (ACTOR)
                 td_error = td_target - value_current
                 policy_loss = policy_network.compute_loss(action_dist, actions, policy_reg, td_error)
+                ep_policy_looses.append(policy_loss)
             policy_grads = policy_tape.gradient(policy_loss, policy_network.trainable_variables)
 
             t += 1
@@ -96,10 +103,12 @@ def train(args):
                     for i, (grad_val, grad_pol )in enumerate(zip(ep_val_grad, ep_log_grad)):
                         total_value_gradient = [a + b for a, b in zip(total_value_gradient, grad_val)] if i > 0 else grad_val
                         total_policy_gradient = [a + b for a, b in zip(total_policy_gradient, grad_pol)] if i > 0 else grad_pol
+                    total_policy_loss.append(np.mean(ep_policy_looses))
+                    total_value_loss.append(np.mean(ep_value_looses))
 
                     # reset variables
-                    ep_rewards, ep_log_grad, ep_val_grad = [], [], []
                     trajs += 1
+                    ep_rewards, ep_log_grad, ep_val_grad = [], [], []
                     if trajs >= args.update_step:
                         print("Episode {0} is done: keep random ratio: {1}, distance: {2}".format(n, keep_random, distance))
                         break
@@ -123,6 +132,8 @@ def train(args):
                 tfc.summary.histogram('histogram/total_gradient_layer_{0}'.format(layer), grad)
             tfc.summary.scalar('metric/distance', distance, step=n)
             tfc.summary.scalar('metric/last_reward', ep_rew, step=n)
+            tfc.summary.scalar('metric/total_policy_loss', np.mean(total_policy_loss), step=n)
+            tfc.summary.scalar('metric/total_value_loss', np.mean(total_value_loss), step=n)
             train_writer.flush()
 
         # save model

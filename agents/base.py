@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow.contrib as tfc
 
 
 class Base(tf.keras.Model):
@@ -97,16 +98,16 @@ class PolicyNetwork(Base):
         sigma = tf.squeeze(tf.nn.softplus(self.stddev_estimator(logits, training=training)) + 1e-05)
         normal_dist = tf.distributions.Normal(mu, sigma)
 
-        return mu, sigma, normal_dist
+        return normal_dist
 
     def compute_loss(self, action_distribution, action_samples, regularizer, target):
         policy_loss = action_distribution.log_prob(action_samples) * target
-        policy_loss -= action_distribution.entropy() * 1e-1
+        policy_loss += action_distribution.entropy() * 1e-1
         policy_loss = tf.reduce_mean(policy_loss)
 
         # apply regularization
-        # reg_value = tfc.layers.apply_regularization(regularizer, self.trainable_variables)
-        return policy_loss  # + reg_value
+        reg_value = tfc.layers.apply_regularization(regularizer, self.trainable_variables)
+        return policy_loss  + reg_value
 
 
 class ValueEstimator(Base):
