@@ -120,9 +120,9 @@ class ManEnv(Env):
         self.random_target[1] = np.random.uniform(y_range[0], y_range[1])
         self.random_target[2] = np.random.uniform(z_range[0], z_range[1])
 
-    def _randomize_rope_position(self):
-        self.env.model.body_pos[1][1] = (np.random.uniform() - 0.5) / 10
-        self.env.forward()
+    # def _randomize_rope_position(self):
+    #     self.env.model.body_pos[1][1] = (np.random.uniform() - 0.5) / 10
+    #     self.env.forward()
 
     # def _get_camera_image(self):
     #     # self.viewer.render(self.img_width, self.img_height, self.cam_id)
@@ -138,9 +138,8 @@ class ManEnv(Env):
     def _get_poses(self):
         poses = list()
         p1 = self._get_target_pose(self.link_base_name, self.link_tool_name)[0]
-        p2 = self.random_target
         poses.append(p1)
-        poses.append(p2)
+        poses.append(self.random_target)
         poses = np.asarray(poses)
         self.poses = np.float32(poses[np.newaxis, :])
 

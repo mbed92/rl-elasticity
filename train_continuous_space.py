@@ -36,7 +36,7 @@ def train(args):
 
     eta_v = tfc.eager.Variable(args.learning_rate)
     eta_value = tf.train.exponential_decay(
-        args.learning_rate * 100,
+        args.learning_rate * 10,
         tf.train.get_or_create_global_step(),
         args.epochs,
         0.98)
@@ -98,7 +98,7 @@ def train(args):
             ep_val_grad.append(value_grads)
 
             # compute grad log-likelihood for a current episode
-            if is_done(distance, ep_rew, t, args):
+            if is_done(distance, t, args):
                 if len(ep_rewards) > 5:
                     for i, (grad_val, grad_pol )in enumerate(zip(ep_val_grad, ep_log_grad)):
                         total_value_gradient = [a + b for a, b in zip(total_value_gradient, grad_val)] if i > 0 else grad_val
@@ -147,7 +147,7 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--model-save-interval', type=int, default=50)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
-    parser.add_argument('--update-step', type=int, default=2)
+    parser.add_argument('--update-step', type=int, default=1)
     parser.add_argument('--sim-step', type=int, default=5)
     parser.add_argument('--sim-start', type=int, default=1)
     parser.add_argument('--sim-cam-id', type=int, default=0)

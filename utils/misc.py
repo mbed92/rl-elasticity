@@ -55,10 +55,8 @@ def reward_to_go(rewards: list):
     return rtgs
 
 
-def is_done(current_distance, current_reward, t, args):
-    if args.sim_max_dist < current_distance or current_distance < args.sim_min_dist or \
-            current_reward > 9. or \
-            t > args.sim_max_length:
+def is_done(current_distance, t, args):
+    if args.sim_max_dist < current_distance or current_distance < args.sim_min_dist or t > args.sim_max_length:
         return True
     return False
 

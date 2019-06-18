@@ -101,8 +101,8 @@ class PolicyNetwork(Base):
         return normal_dist
 
     def compute_loss(self, action_distribution, action_samples, regularizer, target):
-        policy_loss = action_distribution.log_prob(action_samples) * target
-        policy_loss += action_distribution.entropy() * 1e-1
+        policy_loss = -action_distribution.log_prob(action_samples) * target
+        policy_loss -= action_distribution.entropy() * 1e-1
         policy_loss = tf.reduce_mean(policy_loss)
 
         # apply regularization
