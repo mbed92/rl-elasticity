@@ -1,7 +1,7 @@
 from .interface import Env
 from utils.kinematics import *
 from constants import *
-
+from scipy.special import huber
 import mujoco_py
 import numpy as np
 import tensorflow as tf
@@ -30,7 +30,7 @@ class ManEnv(Env):
         # setup environment and viewer
         scene = mujoco_py.load_model_from_path(env_path)
         self.env = mujoco_py.MjSim(scene)
-        self.num_actions = self.env.data.ctrl.size
+        self.num_actions = self.env.data.ctrl.size - 4  # we do not optimize a gripper
         # self.viewer = mujoco_py.MjRenderContextOffscreen(self.env, self.cam_id)
 
     # main methods
@@ -40,11 +40,16 @@ class ManEnv(Env):
 
         # compose a reward (Huber) based on a distance
         delta = 0.3
-        reward = -0.5 * distance ** 2 if distance < delta else -delta * (distance - 0.5 * delta)
+        # reward = -0.5 * distance ** 2 if distance < delta else -delta * (distance - 0.5 * delta)
+        reward = -huber(delta, distance)
 
         # add a penalty term for taking too big actions
         gamma = 0.005
         reward -= gamma * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))
+
+        if distance < 0.1:
+            reward += 100
+
         return reward, distance
 
     def step(self, num_steps=-1):
