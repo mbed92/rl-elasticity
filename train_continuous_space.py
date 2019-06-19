@@ -44,8 +44,8 @@ def train(args):
 
     policy_optimizer, policy_ckpt = setup_optimizer(args.policy_restore_path, eta_p, policy_network)
     value_optimizer, value_ckpt = setup_optimizer(args.value_restore_path, eta_v, value_network)
-    policy_reg = tf.keras.regularizers.l2(1e-5)
-    value_reg = tf.keras.regularizers.l2(1e-5)
+    policy_reg = tf.keras.regularizers.l2(1e-6)
+    value_reg = tf.keras.regularizers.l2(1e-6)
 
     # run training
     for n in range(args.epochs):
@@ -145,8 +145,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=1200)
     parser.add_argument('--model-save-interval', type=int, default=50)
     parser.add_argument('--learning-rate', type=float, default=1e-4)
-    parser.add_argument('--update-step', type=int, default=1)
-    parser.add_argument('--sim-step', type=int, default=5)
+    parser.add_argument('--update-step', type=int, default=5)
+    parser.add_argument('--sim-step', type=int, default=10)
     parser.add_argument('--sim-start', type=int, default=1)
     parser.add_argument('--sim-cam-id', type=int, default=0)
     parser.add_argument('--sim-cam-img-w', type=int, default=640)

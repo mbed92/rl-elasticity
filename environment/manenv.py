@@ -41,10 +41,10 @@ class ManEnv(Env):
         # compose a reward (Huber) based on a distance
         delta = 0.3
         # reward = -0.5 * distance ** 2 if distance < delta else -delta * (distance - 0.5 * delta)
-        reward = -huber(delta, distance)
+        reward = -100 * huber(delta, distance)
 
         # add a penalty term for taking too big actions
-        gamma = 0.005
+        gamma = 0.5
         reward -= gamma * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))
 
         if distance < 0.1:

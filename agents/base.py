@@ -41,8 +41,8 @@ class PolicyNetwork(Base):
 
         self.state_estimator = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(32, tf.nn.relu),
-            tf.keras.layers.Dropout(0.2),
+            # tf.keras.layers.Dense(32, tf.nn.relu),
+            # tf.keras.layers.Dropout(0.2),
             tf.keras.layers.Dense(16, None)
         ])
 
@@ -50,13 +50,13 @@ class PolicyNetwork(Base):
 
         self.stddev_estimator = tf.keras.Sequential([
             tf.keras.layers.Dense(16, tf.nn.relu),
-            tf.keras.layers.Dropout(0.2),
+            # tf.keras.layers.Dropout(0.2),
             tf.keras.layers.Dense(self.num_controls, None)
         ])
 
         self.mean_estimator = tf.keras.Sequential([
             tf.keras.layers.Dense(16, tf.nn.relu),
-            tf.keras.layers.Dropout(0.2),
+            # tf.keras.layers.Dropout(0.2),
             tf.keras.layers.Dense(self.num_controls, None)
         ])
 
@@ -69,8 +69,8 @@ class PolicyNetwork(Base):
         logits = self.state_estimator(feed, training=training)
 
         # push the hidden state into the LSTM
-        self.hidden_state = self.LSTM.get_initial_state(batch_size=tf.shape(logits)[0], dtype=logits.dtype) if self.hidden_state is None else self.hidden_state
-        logits, self.hidden_state = self.LSTM(logits, states=self.hidden_state, training=training)
+        # self.hidden_state = self.LSTM.get_initial_state(batch_size=tf.shape(logits)[0], dtype=logits.dtype) if self.hidden_state is None else self.hidden_state
+        # logits, self.hidden_state = self.LSTM(logits, states=self.hidden_state, training=training)
 
         # estimate distributions of actions
         mu = tf.squeeze(self.mean_estimator(logits, training=training))
@@ -94,8 +94,8 @@ class ValueEstimator(Base):
         super(ValueEstimator, self).__init__()
         self.value_estimator = tf.keras.Sequential([
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(32, tf.nn.relu),
-            tf.keras.layers.Dropout(0.2),
+            # tf.keras.layers.Dense(32, tf.nn.relu),
+            # tf.keras.layers.Dropout(0.2),
             tf.keras.layers.Dense(1, None)
         ])
 
@@ -107,5 +107,5 @@ class ValueEstimator(Base):
 
     def compute_loss(self, output, target, regularizer):
         value_loss = tf.losses.mean_squared_error(target, output)
-        reg_loss = tfc.layers.apply_regularization(regularizer, self.trainable_variables)
-        return value_loss + reg_loss
+        # reg_loss = tfc.layers.apply_regularization(regularizer, self.trainable_variables)
+        return value_loss# + reg_loss
