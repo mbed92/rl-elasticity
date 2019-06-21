@@ -34,25 +34,7 @@ class ManEnv(Env):
         # self.viewer = mujoco_py.MjRenderContextOffscreen(self.env, self.cam_id)
 
     # main methods
-    def get_reward(self, actions):
-        ax_tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
-        distance = np.linalg.norm(self.random_target - ax_tool[0])
-
-        # compose a reward (Huber) based on a distance
-        delta = 0.3
-        # reward = -0.5 * distance ** 2 if distance < delta else -delta * (distance - 0.5 * delta)
-        reward = -100 * huber(delta, distance)
-
-        # add a penalty term for taking too big actions
-        gamma = 0.5
-        reward -= gamma * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))
-
-        if distance < 0.1:
-            reward += 100
-
-        return reward, distance
-
-    def step(self, num_steps=-1):
+    def step(self, num_steps=-1, actions=None):
         if num_steps < 1:
             num_steps = self.sim_step
         try:
@@ -60,6 +42,12 @@ class ManEnv(Env):
                 self.env.step()
         except mujoco_py.builder.MujocoException:
             self.reset()
+
+        reward, distance, done = 0, 0, 0
+        if actions is not None:
+            reward, distance, done = self._get_reward(actions)
+
+        return reward, distance, done
 
     def reset(self):
         self.env.reset()
@@ -88,8 +76,8 @@ class ManEnv(Env):
         # apply
         actions = tf.squeeze(actions)
         for i in range(self.num_actions):
-            self.env.data.ctrl[i] += actions.numpy()[i]
-        return actions
+            self.env.data.ctrl[i] = actions.numpy()[i]
+        return tf.cast(actions, tf.float64)
 
     def randomize_environment(self):
         self._set_random_target()
@@ -109,6 +97,24 @@ class ManEnv(Env):
         }
 
     # private methods
+    def _get_reward(self, actions):
+        ax_tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
+        distance = np.linalg.norm(self.random_target - ax_tool[0])
+
+        reward = 0
+        done = bool(distance < 0.1)
+        if done:
+            reward += 100
+
+        # compose a reward (Huber) based on a distance
+        delta = 0.5
+        reward -= 0.1 * huber(delta, distance)
+
+        # add a penalty term for taking too big actions
+        reward -= 0.005 * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))
+
+        return reward, distance, done
+
     def _get_target_pose(self, base_name, target_name):
         base_xyz = self.env.data.get_body_xpos(base_name)
         base_quat = self.env.data.get_body_xquat(base_name)
