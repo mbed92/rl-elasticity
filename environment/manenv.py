@@ -32,6 +32,7 @@ class ManEnv(Env):
         self.env = mujoco_py.MjSim(scene)
         self.num_actions = self.env.data.ctrl.size - 4  # we do not optimize a gripper
         # self.viewer = mujoco_py.MjRenderContextOffscreen(self.env, self.cam_id)
+        self.uniform_dist = tf.distributions.Uniform(-1.0, 1.0)
 
     # main methods
     def step(self, num_steps=-1, actions=None):
@@ -64,16 +65,12 @@ class ManEnv(Env):
         return self.poses, self.joints
 
     def take_continuous_action(self, normal_dist, keep_prob):
-        # sample actions
-        uniform_dist = tf.distributions.Uniform(-1.0, 1.0)
-
         if np.random.uniform() < keep_prob:
             actions = normal_dist.sample(1)
         else:
             shape = tf.shape(normal_dist.sample(1))
-            actions = uniform_dist.sample(shape)
+            actions = self.uniform_dist.sample(shape)
 
-        # apply
         actions = tf.squeeze(actions)
         for i in range(self.num_actions):
             self.env.data.ctrl[i] = actions.numpy()[i]
