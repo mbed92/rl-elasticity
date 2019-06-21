@@ -7,6 +7,7 @@ import numpy as np
 
 from agents import PolicyNetwork
 from environment import ManEnv
+from utils import *
 
 tf.enable_eager_execution()
 tf.executing_eagerly()
@@ -15,31 +16,32 @@ tf.executing_eagerly()
 def test(args):
     env_spec = ManEnv.get_std_spec(args)
     env = ManEnv(**env_spec)
-    policy = PolicyNetwork(num_controls=env.num_actions)
+    scaler, featurizer = get_fitter(env)
+    policy_network = PolicyNetwork(num_controls=env.num_actions)
+    policy_network.load_weights(os.path.join(args.policy_restore_path, 'policy_network.hdf5'))
+    viewer = mujoco_py.MjRenderContextOffscreen(env.get_env(), 0)
 
-    ckpt_policy = tf.train.Checkpoint(model=policy)
-    ckpt_policy.restore(tf.train.latest_checkpoint(args.policy_restore_path))
-
-    viewer = mujoco_py.MjRenderContextOffscreen(env.env, 0)
-    env.reset()
     for i in range(2000):
-        poses, joints = env.get_observations()
-        actions_distribution = policy([poses, joints], True)
-        actions = env.take_continuous_action(actions_distribution, 1.0)
-        ep_rew, distance = env.get_reward(actions)
-        env.step()
+        env.reset()
+        observation = process_state(env.get_observations(), scaler, featurizer)
+        while True:
+            actions_distribution = policy_network(observation, True)
+            actions = env.take_continuous_action(actions_distribution, 1.0)
+            ep_rew, distance, done = env.step(args.sim_step, actions)
 
-        rgb = np.asarray(viewer.read_pixels(640, 480, depth=False)[::-1, :, :], dtype=np.float32)
-        rgb = rgb / np.max(rgb) if np.max(rgb) > 0 else rgb / 255.
-        rgb = np.float32(rgb[np.newaxis, :, :, :])
-        cv2.imshow("aaa", rgb[0])
-        cv2.waitKey(1)
+            rgb = np.asarray(viewer.read_pixels(640, 480, depth=False)[::-1, :, :], dtype=np.float32)
+            rgb = rgb / np.max(rgb) if np.max(rgb) > 0 else rgb / 255.
+            rgb = np.float32(rgb[np.newaxis, :, :, :])
+            cv2.imshow("aaa", rgb[0])
+            cv2.waitKey(1)
 
-        if i % 100 == 0 or distance < 0.05:
-            env.randomize_environment()
-            print(distance)
-            env.reset()
+            if done:
+                env.randomize_environment()
+                env.reset()
+                print(distance)
+                break
 
+            observation = process_state(env.get_observations(), scaler, featurizer)
 
 if __name__ == '__main__':
     parser = ArgumentParser()

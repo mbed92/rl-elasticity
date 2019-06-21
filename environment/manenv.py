@@ -34,8 +34,11 @@ class ManEnv(Env):
         # self.viewer = mujoco_py.MjRenderContextOffscreen(self.env, self.cam_id)
         self.uniform_dist = tf.distributions.Uniform(-1.0, 1.0)
 
+    def get_env(self):
+        return self.env
+
     # main methods
-    def step(self, num_steps=-1, actions=None):
+    def step(self, num_steps=-1, actions=None, min_dist=0.1):
         if num_steps < 1:
             num_steps = self.sim_step
         try:
@@ -44,9 +47,9 @@ class ManEnv(Env):
         except mujoco_py.builder.MujocoException:
             self.reset()
 
-        reward, distance, done = 0, 0, 0
+        reward, distance, done = 0, 0, False
         if actions is not None:
-            reward, distance, done = self._get_reward(actions)
+            reward, distance, done = self._get_reward(actions, min_dist)
 
         return reward, distance, done
 
@@ -94,18 +97,18 @@ class ManEnv(Env):
         }
 
     # private methods
-    def _get_reward(self, actions):
+    def _get_reward(self, actions, min_dist):
         ax_tool = self._get_target_pose(self.link_base_name, self.link_tool_name)
         distance = np.linalg.norm(self.random_target - ax_tool[0])
 
-        reward = 0
-        done = bool(distance < 0.1)
+        reward = 0.0
+        done = bool(distance < min_dist)
         if done:
-            reward += 100
+            reward += 100.0
 
         # compose a reward (Huber) based on a distance
-        delta = 0.5
-        reward -= 0.1 * huber(delta, distance)
+        delta = 0.25
+        reward -= 2*huber(delta, distance)
 
         # add a penalty term for taking too big actions
         reward -= 0.005 * np.squeeze(np.abs(np.matmul(actions, np.transpose(actions))))

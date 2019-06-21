@@ -34,7 +34,8 @@ def setup_optimizer(restore_path, eta, model: tf.keras.Model, weights_file='poli
     if restore_path is not "":
         latest = tf.train.latest_checkpoint(restore_path)
         ckpt.restore(latest)
-        model.load_weights(os.path.join(restore_path, weights_file))
+        weights = os.path.join(restore_path, weights_file)
+        model.load_weights(weights)
         print("Weight successfully restored")
     else:
         print("No model loaded. Training from the beginning.")
@@ -91,7 +92,7 @@ def get_fitter(env):
         poses, joints = env.get_observations()
         a = np.concatenate([np.reshape(poses, newshape=[-1]), np.reshape(joints, newshape=[-1])], 0)
         return a
-    observation_examples = np.array([env.observation_space.sample() for _ in range(10000)])
+    observation_examples = np.array([_get_sample() for _ in range(10000)])
     scaler = sklearn.preprocessing.StandardScaler()
     scaler.fit(observation_examples)
 
@@ -107,8 +108,8 @@ def get_fitter(env):
     return scaler, featurizer
 
 def process_state(state, scaler, featurizer):
-    # if len(state) == 2:
-    #     state = np.concatenate([np.reshape(state[0], newshape=[-1]), np.reshape(state[1], newshape=[-1])], 0)
+    if len(state) == 2:
+        state = np.concatenate([np.reshape(state[0], newshape=[-1]), np.reshape(state[1], newshape=[-1])], 0)
     scaled = scaler.transform([state])
     featurized = featurizer.transform(scaled)
     return featurized[0][np.newaxis, :]
