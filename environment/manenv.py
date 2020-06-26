@@ -12,6 +12,14 @@ y_range = (-0.5, 0.5)
 z_range = (0.4, 0.9)
 
 
+fn = '''
+            #include <stdio.h>
+            void fun(const mjModel* m, mjData* d) {
+                printf("hello");
+            }
+        '''
+
+
 class ManEnv(Env):
 
     def __init__(self, sim_start, sim_step, env_path, cam_id, img_width, img_height, base, tool):
@@ -143,7 +151,7 @@ class ManEnv(Env):
     #     pass
 
     def _get_point_in_base(self, point):
-        base_xyz = self.env.data.get_body_xpos(self.link_base_name)
+        base_xyz = self._env.data.get_body_xpos(self.link_base_name)
         return point - base_xyz
 
     def _get_poses(self):

@@ -3,6 +3,7 @@ from agents import PolicyNetwork, ValueEstimator
 from utils import *
 import gym
 
+
 tf.enable_eager_execution()
 tf.executing_eagerly()
 
@@ -169,5 +170,5 @@ if __name__ == '__main__':
 
     os.makedirs(args.policy_save_path, exist_ok=True)
     os.makedirs(args.value_save_path, exist_ok=True)
-    # train(args)
+    train(args)
     evaluate(args)
